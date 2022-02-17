@@ -1,46 +1,50 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
+	"io"
 	"log"
+	"os"
 
-	conn "github.com/msk-siteimprove/conn-checker/pkg"
+	"github.com/msk-siteimprove/conn-checker/pkg/conn"
 )
 
+const (
+	sites = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+)
+
+// Parse file
+// Validate to some extend
+// Check connection
+// Write to separete files based on success
 func main() {
 	fmt.Println("Conn-checker started")
 
-	// Parse file
+    f, err := os.Open(sites)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-	// Validate to some extend
+    defer f.Close()
 
-	// Check connection
+    csvReader := csv.NewReader(f)
+    for {
+        line, err := csvReader.Read()
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            log.Fatalln("an error occurred while parsing input file", err)
+        }
+        fmt.Printf("%+v\n", line)
+    }
 
-	// Write to separete files
-
-	// client := &http.Client{
-	// 	// CheckRedirect: func(req *http.Request, via[]*http.Request) error {
-		// 	return http.ErrUseLastResponse // Will return on first redirect or error
-		// },
-	// }
-
-
-	url := "http://www.dr.dk"
-	// resp, err := client.Get(url)
-	// if err != nil {
-	// 	log.Fatalln("error occured while connecting to site:", err)
-	// }
-
+	url := "http://dr.dk"
 	result, err := conn.Connect(url)
 	if err != nil {
 		log.Fatalln("error connecting to site", err)
 	}
 
 	fmt.Println(result)
-
-
-	// fmt.Println(resp.Request.URL)
-// 	fmt.Println("Output:", resp.Status)
-// 	fmt.Println("Req url", url)
-// 	fmt.Println("End url:", resp.Request.URL)
 }

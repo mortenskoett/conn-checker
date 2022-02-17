@@ -12,11 +12,11 @@ type ConnectionResult struct {
 	Status string
 	ReqUrl string
 	EndUrl string
-	Redirects map[string]int // Url giving status code
+	Redirects map[string]int // Url to statuscode
 }
 
 func Connect(url string) (*ConnectionResult, error) {
-	result := ConnectionResult{Redirects: make(map[string]int)}
+	result := &ConnectionResult{Redirects: make(map[string]int)}
 	nextUrl := url
 
     client := &http.Client{
@@ -26,32 +26,23 @@ func Connect(url string) (*ConnectionResult, error) {
 	
 	for i := 0; i < maxRedirects; i++ {
 		resp, err := client.Get(nextUrl)
-
 		if err != nil {
 			return nil, err
 		}
-
-		// fmt.Println("Output:", resp.Status)
-		// fmt.Println("Req url", url)
-		// fmt.Println("End url:", resp.Request.URL.String())
-
-		// result := ConnectionResult{
-		// 	Status: resp.Status,
-		// 	ReqUrl: url,
-		// 	EndUrl: resp.Request.URL.String(),
-		// }
+		
+		defer resp.Body.Close()
 
 		result.Status = resp.Status
 		result.ReqUrl = url
 		result.EndUrl = resp.Request.URL.String()
+		result.Redirects[result.EndUrl] = resp.StatusCode
 
 		// Try going to next redirect
 		if next := resp.Header.Get("Location"); next != "" {
 			nextUrl = next
-			result.Redirects[url] = resp.StatusCode
 		} else {
-			return &result, nil
+			return result, nil
 		}
 	}
-	return &result, nil
+	return result, nil
 }

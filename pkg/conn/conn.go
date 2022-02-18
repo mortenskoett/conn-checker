@@ -1,12 +1,14 @@
 package conn
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
+	"time"
 )
 
 const (
-	maxRedirects = 10
+	maxRedirects = 20
+	connectTimeoutSecs = 5
 )
 
 type ConnectionResult struct {
@@ -27,7 +29,11 @@ func Connect(url string) (*ConnectionResult, error) {
 	}
 
     client := &http.Client{
+		Timeout: connectTimeoutSecs * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= maxRedirects {
+				return errors.New("max number of redirects reached")
+			}
 
 			// Collect data about redirects
 			fromUrl := via[len(via)-1].URL.String()
@@ -50,6 +56,5 @@ func Connect(url string) (*ConnectionResult, error) {
 	result.EndUrl = resp.Request.URL.String()
 	result.Redirects[result.EndUrl] = resp.StatusCode // Set end url as final element in Redirects
 
-	fmt.Println("CONNECTION RESULT: ", result)
 	return result, nil
 }

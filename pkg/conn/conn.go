@@ -26,7 +26,8 @@ func Connect(url string) (*ConnectionResult, error) {
 	}
 
     client := &http.Client{
-      CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		Timeout: 1,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
         return http.ErrUseLastResponse
     } }
 

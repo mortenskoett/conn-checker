@@ -52,7 +52,9 @@ func newSuccessOutputResult(id, inputUrl string, connectionResult *conn.Connecti
 }
 
 func (r *ErrorOutputResult) Flatten() []string {
-	return []string{}
+	return []string {
+		r.Id, r.UnmodifiedInputUrl, r.Error,
+	}
 }
 
 func (r *SuccessOutputResult) Flatten() []string {
@@ -67,7 +69,8 @@ const (
 	UrlCol Column = 29
 
 	// Input file
-	urlListInputPath string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+	// inputFilePath string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+	inputFilePath string = "data/testdata.csv"
 
 	// Output files
 	outputSuccessPath string = "output/success.csv"
@@ -76,8 +79,8 @@ const (
 )
 
 var (
-	outputSuccessData = make([]Flattener, 10000) // Arbitrary estimated size
-	outputErrorData = make([]Flattener, 5000) // Arbitrary estimated size
+	outputSuccessData = make([]Flattener, 0, 10000) // Arbitrary estimated size
+	outputErrorData = make([]Flattener, 0, 5000) // Arbitrary estimated size
 )
 
 // Parse file
@@ -87,14 +90,20 @@ var (
 func main() {
 	fmt.Println("Conn-checker started")
 
-    f, err := os.Open(urlListInputPath)
+    f, err := os.Open(inputFilePath)
     if err != nil {
         log.Fatal("error while opening the file:", err)
     }
-
     defer f.Close()
 
     reader := csv.NewReader(f)
+
+	// Read specification on first line
+	_, err = reader.Read()
+	if err != nil {
+		log.Fatalln("error while parsing first line of file:", err)
+	}
+
     for {
         line, err := reader.Read()
         if err == io.EOF {
@@ -132,8 +141,13 @@ func main() {
 			outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
 		}
 	}
-		// persist(outputSuccessData, outputSuccessPath)
-		// persist(outputErrorPath, outputErrorData)
+
+	// fmt.Println(outputErrorData)
+	// fmt.Println(prepare(outputErrorData))
+
+	// Save to files when done collecting status codes
+	// persist(outputSuccessData, outputSuccessPath)
+	persist(outputErrorPath, outputErrorData)
 }
 
 // Attempts to parse the given string into a URL.
@@ -199,7 +213,7 @@ func persist(relPath string, fs []Flattener) error {
 
 // Prepares the slice of Flatteners to be persisted
 func prepare(fs []Flattener) [][]string {
-	data := make([][]string, len(fs))
+	data := make([][]string, 0, len(fs))
 	for _, p := range fs {
 		data = append(data, p.Flatten())
 	}

@@ -18,7 +18,7 @@ type ConnectionResult struct {
 	Redirects map[string]int // Url to statuscode
 }
 
-// Makes a GET request to the given URL. If URL is valid then a max of  n 
+// Makes a GET request to the given URL. If URL is valid then a max of n 
 // redirects are followed to determine the status of the end url. 
 func Connect(url string) (*ConnectionResult, error) {
 	result := &ConnectionResult{

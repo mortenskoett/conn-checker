@@ -112,7 +112,7 @@ func main() {
             break
         }
         if err != nil {
-            log.Fatalln("error while parsing input file entry:", err)
+            log.Fatalln("error parsing input file entry:", err)
         }
 
 		// Columns read from csv
@@ -121,33 +121,26 @@ func main() {
 
 		parsedUrl, err := parseUrl(urlEntry)
 		if err != nil {
-			fmt.Print("Appended parsedUrl error", parsedUrl)
+			fmt.Print("error added: parsing to url", parsedUrl)
 			outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
-			log.Println("error while parsing to URL format:", err)
 			continue
 		}
 
-		fmt.Println("The URL: ", parsedUrl.String())
-
 		result, err := conn.Connect(parsedUrl.String())
 		if err != nil {
-			fmt.Print("Appended connect error", result)
+			log.Println("error added: connecting:", result)
 			outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
-			log.Println("error while connecting to site:", parsedUrl.String(), err)
 			continue
 		}
 
 		if result.Status >= 200 && result.Status < 300 {
-			fmt.Println("Appended success", result)
+			log.Println("success added:", result)
 			outputSuccessData = append(outputSuccessData, newSuccessOutputResult(idEntry, urlEntry, result))
 		} else {
-			fmt.Println("Appended Get error", result)
+			log.Println("error added: statuscode:", result)
 			outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
 		}
 	}
-
-	// fmt.Println(outputErrorData)
-	// fmt.Println(prepare(outputErrorData))
 
 	// Save to files when done collecting status codes
 	// persist(outputSuccessData, outputSuccessPath)

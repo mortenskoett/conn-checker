@@ -1,6 +1,7 @@
 package conn
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -26,32 +27,29 @@ func Connect(url string) (*ConnectionResult, error) {
 	}
 
     client := &http.Client{
-		Timeout: 1,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-        return http.ErrUseLastResponse
-    } }
 
-	nextUrl := url
-
-	for i := 0; i < maxRedirects; i++ {
-		resp, err := client.Get(nextUrl)
-		if err != nil {
-			return nil, err
-		}
-		
-		defer resp.Body.Close()
-
-		result.Status = resp.StatusCode
-		result.ReqUrl = url
-		result.EndUrl = resp.Request.URL.String()
-		result.Redirects[result.EndUrl] = resp.StatusCode
-
-		// Try going to next redirect
-		if next := resp.Header.Get("Location"); next != "" {
-			nextUrl = next
-		} else {
-			return result, nil
-		}
+			// Collect data about redirects
+			fromUrl := via[len(via)-1].URL.String()
+			fromStatus := req.Response.StatusCode
+			result.Redirects[fromUrl] = fromStatus // Set each redirect with status code
+			return nil
+		},
 	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	// Collect data after redirects
+	result.Status = resp.StatusCode
+	result.ReqUrl = url
+	result.EndUrl = resp.Request.URL.String()
+	result.Redirects[result.EndUrl] = resp.StatusCode // Set end url as final element in Redirects
+
+	fmt.Println("CONNECTION RESULT: ", result)
 	return result, nil
 }

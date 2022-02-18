@@ -98,11 +98,13 @@ func main() {
 
     reader := csv.NewReader(f)
 
-	// Read specification on first line
-	_, err = reader.Read()
+	// Read specification from first line
+	specification, err := reader.Read()
 	if err != nil {
 		log.Fatalln("error while parsing first line of file:", err)
 	}
+	outputErrorData = 
+		append(outputErrorData, newErrorOutputResult(specification[IdCol], specification[UrlCol], "Error"))
 
     for {
         line, err := reader.Read()
@@ -125,6 +127,8 @@ func main() {
 			continue
 		}
 
+		fmt.Println("The URL: ", parsedUrl.String())
+
 		result, err := conn.Connect(parsedUrl.String())
 		if err != nil {
 			fmt.Print("Appended connect error", result)
@@ -133,11 +137,11 @@ func main() {
 			continue
 		}
 
-		if result.Status == 200 {
+		if result.Status >= 200 && result.Status < 300 {
 			fmt.Println("Appended success", result)
 			outputSuccessData = append(outputSuccessData, newSuccessOutputResult(idEntry, urlEntry, result))
 		} else {
-			fmt.Println("Appended error", result)
+			fmt.Println("Appended Get error", result)
 			outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
 		}
 	}
@@ -157,7 +161,7 @@ func parseUrl(u string) (*url.URL, error) {
 		return nil, err
 	}
 
-	parsedUrl, err := url.ParseRequestURI(conformedUrl)
+	parsedUrl, err := url.Parse(conformedUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -182,13 +186,8 @@ func conform(url string) (string, error) {
 	return url, nil
 }
 
+// Persist data to specific location overwriting any file already there.
 func persist(relPath string, fs []Flattener) error {
-	// data := [][]string{
-	// 		{"vegetables", "fruits"},
-	// 		{"carrot", "banana"},
-	// 		{"potato", "strawberry"},
-	// 	}
-
 	data := prepare(fs)
 
     f, err := os.Create(relPath)
@@ -207,7 +206,6 @@ func persist(relPath string, fs []Flattener) error {
     }
 
 	log.Println("Persisted successfully to file: ", relPath)
-
 	return nil
 }
 

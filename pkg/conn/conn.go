@@ -9,23 +9,29 @@ const (
 )
 
 type ConnectionResult struct {
-	Status string
+	Status int
 	ReqUrl string
 	EndUrl string
 	Redirects map[string]int // Url to statuscode
 }
 
-// Makes a GET request to the given URL if valid and follow n redirects
-// to determine the status of the end url. 
+// Makes a GET request to the given URL. If URL is valid then a max of  n 
+// redirects are followed to determine the status of the end url. 
 func Connect(url string) (*ConnectionResult, error) {
-	result := &ConnectionResult{Redirects: make(map[string]int)}
-	nextUrl := url
+	result := &ConnectionResult{
+		Status: 0,
+		ReqUrl: "",
+		EndUrl: "",
+		Redirects: make(map[string]int),
+	}
 
     client := &http.Client{
       CheckRedirect: func(req *http.Request, via []*http.Request) error {
         return http.ErrUseLastResponse
     } }
-	
+
+	nextUrl := url
+
 	for i := 0; i < maxRedirects; i++ {
 		resp, err := client.Get(nextUrl)
 		if err != nil {
@@ -34,7 +40,7 @@ func Connect(url string) (*ConnectionResult, error) {
 		
 		defer resp.Body.Close()
 
-		result.Status = resp.Status
+		result.Status = resp.StatusCode
 		result.ReqUrl = url
 		result.EndUrl = resp.Request.URL.String()
 		result.Redirects[result.EndUrl] = resp.StatusCode

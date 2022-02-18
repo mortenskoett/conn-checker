@@ -8,16 +8,28 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/msk-siteimprove/conn-checker/pkg/conn"
 )
 
 type Column uint16
 
 const (
-	sites = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
-
 	// Column in the document
 	IdCol Column = 0
 	UrlCol Column = 29
+
+	// Input file
+	sites = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+
+	// Output files
+	outputSuccessPath = "output/success.csv"
+	outputFailedPath = "output/failed.csv"
+)
+
+var (
+	outputSuccessData = make([]*conn.ConnectionResult, 10000) // Arbitrary estimated sizes
+	outputFailedData = make([]*conn.ConnectionResult, 5000)
 )
 
 // Parse file
@@ -29,7 +41,7 @@ func main() {
 
     f, err := os.Open(sites)
     if err != nil {
-        log.Fatal("an error occurred while opening the file:", err)
+        log.Fatal("error while opening the file:", err)
     }
 
     defer f.Close()
@@ -41,28 +53,35 @@ func main() {
             break
         }
         if err != nil {
-            log.Fatalln("an error occurred while parsing input file entry:", err)
+            log.Fatalln("error while parsing input file entry:", err)
         }
 
 		parsedUrl, err := parseUrl(line[UrlCol])
 		if err != nil {
-			log.Println("an error occurred while parsing to URL format:", err)
+			log.Println("error while parsing to URL format:", err)
 			continue
 		}
 
-		fmt.Println("alles:", parsedUrl.String())
+		// fmt.Println(parsedUrl.String())
 		// fmt.Println("before:", conformedUrl)
 		// fmt.Println("after:", parsedUrl.Host)
 
-		// result, err := conn.Connect(u)
-		// if err != nil {
-		// 	log.Println("error connecting to site", err)
-		// }
-		// fmt.Println(result)
+		result, err := conn.Connect(parsedUrl.String())
+		if err != nil {
+			log.Println("error while connecting to site:", parsedUrl.String(), err)
+			continue
+		}
+
+		if result.Status != 200 {
+			fmt.Println(result.Status)
+		}
+		// outputSuccessData = append(outputSuccessData, result)
 	}
 
+		// persist(outputSuccessData, outputSuccessPath)
 }
 
+// Attempts to parse the given string into a URL.
 func parseUrl(u string) (*url.URL, error) {
 	conformedUrl, err := conform(u)
 	if err != nil {
@@ -77,7 +96,7 @@ func parseUrl(u string) (*url.URL, error) {
 	return parsedUrl, err
 }
 
-// Makes asssumptions about input string and modifies it to be handlable as URL
+// Makes asssumptions about input string and modifies it to be handlable as URL.
 func conform(url string) (string, error) {
 	if url == "" {
 		return "", fmt.Errorf("the given url was empty")
@@ -90,6 +109,10 @@ func conform(url string) (string, error) {
 		return sb.String(), nil
 	}
 
-	// Nothing is wrong
+	// Otherwise we assume nothing is wrong.
 	return url, nil
+}
+
+func persist(data []*conn.ConnectionResult, relPath string) error {
+	return nil
 }

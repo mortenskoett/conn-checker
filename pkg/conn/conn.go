@@ -11,11 +11,16 @@ const (
 	connectTimeoutSecs = 5
 )
 
+type Redirect struct {
+	Url string
+	Status int
+}
+
 type ConnectionResult struct {
 	Status int
 	ReqUrl string
 	EndUrl string
-	Redirects map[string]int // Url to statuscode
+	Redirects []Redirect // Url to statuscode
 }
 
 // Makes a GET request to the given URL. If URL is valid then a max of n 
@@ -25,7 +30,7 @@ func Connect(url string) (*ConnectionResult, error) {
 		Status: 0,
 		ReqUrl: "",
 		EndUrl: "",
-		Redirects: make(map[string]int),
+		Redirects: make([]Redirect, 0, 1),
 	}
 
     client := &http.Client{
@@ -38,7 +43,7 @@ func Connect(url string) (*ConnectionResult, error) {
 			// Collect data about redirects
 			fromUrl := via[len(via)-1].URL.String()
 			fromStatus := req.Response.StatusCode
-			result.Redirects[fromUrl] = fromStatus // Set each redirect with status code
+			result.Redirects = append(result.Redirects, Redirect{Url: fromUrl, Status: fromStatus}) // Set each redirect with status code
 			return nil
 		},
 	}
@@ -54,7 +59,7 @@ func Connect(url string) (*ConnectionResult, error) {
 	result.Status = resp.StatusCode
 	result.ReqUrl = url
 	result.EndUrl = resp.Request.URL.String()
-	result.Redirects[result.EndUrl] = resp.StatusCode // Set end url as final element in Redirects
+	result.Redirects = append(result.Redirects, Redirect{Url: result.EndUrl, Status: resp.StatusCode}) // Set end url as final element in Redirects
 
 	return result, nil
 }

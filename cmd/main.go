@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/msk-siteimprove/conn-checker/pkg/conn"
@@ -52,13 +53,22 @@ func newSuccessOutputResult(id, inputUrl string, connectionResult *conn.Connecti
 }
 
 func (r *ErrorOutputResult) Flatten() []string {
+	// Should match columnNames
 	return []string {
 		r.Id, r.UnmodifiedInputUrl, r.Error,
 	}
 }
 
 func (r *SuccessOutputResult) Flatten() []string {
-	return []string{}
+	// Should match columnNames
+	return []string {
+		r.Id,
+		r.UnmodifiedInputUrl,
+		r.ConnectionResult.ReqUrl,
+		r.ConnectionResult.EndUrl,
+		strconv.Itoa(r.ConnectionResult.Status),
+		fmt.Sprint(r.ConnectionResult.Redirects),
+	}
 }
 
 type Column uint16
@@ -69,18 +79,12 @@ const (
 	UrlCol Column = 29
 
 	// Input file
-	// inputFilePath string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
-	inputFilePath string = "data/testdata.csv"
+	inputFilePath string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+	// inputFilePath string = "data/testdata.csv"
 
 	// Output files
 	outputSuccessPath string = "output/success.csv"
 	outputErrorPath string = "output/errors.csv"
-	// outputFailedPath = "output/failed.csv"
-)
-
-var (
-	outputSuccessData = make([]Flattener, 0, 10000) // Arbitrary estimated size
-	outputErrorData = make([]Flattener, 0, 5000) // Arbitrary estimated size
 )
 
 // Parse file
@@ -103,8 +107,19 @@ func main() {
 	if err != nil {
 		log.Fatalln("error while parsing first line of file:", err)
 	}
-	outputErrorData = 
-		append(outputErrorData, newErrorOutputResult(specification[IdCol], specification[UrlCol], "Error"))
+
+	errorColumnNames := []string{specification[IdCol], specification[UrlCol], "Error"}
+	successColumnNames := []string{
+		specification[IdCol],
+		specification[UrlCol],
+		"Request Url",
+		"End Url",
+		"Status Code",
+		"Redirects",
+	}
+
+	outputSuccessData := make([]Flattener, 0, 10000) // Arbitrary estimated size
+	outputErrorData := make([]Flattener, 0, 5000) // Arbitrary estimated size
 
     for {
         line, err := reader.Read()
@@ -112,7 +127,7 @@ func main() {
             break
         }
         if err != nil {
-            log.Fatalln("error parsing input file entry:", err)
+            log.Fatalln("error parsing input file entry:", line, err)
         }
 
 		// Columns read from csv
@@ -121,7 +136,7 @@ func main() {
 
 		parsedUrl, err := parseUrl(urlEntry)
 		if err != nil {
-			fmt.Print("error added: parsing to url", parsedUrl)
+			log.Print("error added: parsing to url", parsedUrl)
 			outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
 			continue
 		}
@@ -133,18 +148,20 @@ func main() {
 			continue
 		}
 
-		if result.Status >= 200 && result.Status < 300 {
-			log.Println("success added:", result)
+		// if result.Status >= 200 && result.Status < 300 {
+			log.Println("connection result added:", result)
 			outputSuccessData = append(outputSuccessData, newSuccessOutputResult(idEntry, urlEntry, result))
-		} else {
-			log.Println("error added: statuscode:", result)
-			outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
-		}
+		// } else {
+			// log.Println("error added: statuscode:", result)
+			// outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
+		// }
 	}
 
 	// Save to files when done collecting status codes
-	// persist(outputSuccessData, outputSuccessPath)
-	persist(outputErrorPath, outputErrorData)
+	persist(outputSuccessPath, outputSuccessData, successColumnNames)
+	persist(outputErrorPath, outputErrorData, errorColumnNames)
+
+	fmt.Println("Conn-checker done.")
 }
 
 // Attempts to parse the given string into a URL.
@@ -180,8 +197,8 @@ func conform(url string) (string, error) {
 }
 
 // Persist data to specific location overwriting any file already there.
-func persist(relPath string, fs []Flattener) error {
-	data := prepare(fs)
+func persist(relPath string, fs []Flattener, columnNames []string) error {
+	data := prepare(fs, columnNames)
 
     f, err := os.Create(relPath)
     if err != nil {
@@ -203,8 +220,10 @@ func persist(relPath string, fs []Flattener) error {
 }
 
 // Prepares the slice of Flatteners to be persisted
-func prepare(fs []Flattener) [][]string {
-	data := make([][]string, 0, len(fs))
+func prepare(fs []Flattener, columnNames []string) [][]string {
+	data := make([][]string, 0, len(fs)+1) // +1 b/c of the first row of column names
+	data = append(data, columnNames)
+
 	for _, p := range fs {
 		data = append(data, p.Flatten())
 	}

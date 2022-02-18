@@ -1,4 +1,0 @@
-_id,Sito_istituzionale,Error
-1,www.uslumbria1.gov.it,"Get ""http://www.uslumbria1.gov.it"": dial tcp: lookup www.uslumbria1.gov.it: no such host"
-9,www.aspvv.it,"Get ""https://aspvv.it/"": x509: certificate signed by unknown authority"
-13,,the given url was empty

@@ -12,8 +12,8 @@ import (
 	"github.com/msk-siteimprove/conn-checker/pkg/conn"
 )
 
-type Persister interface {
-	FormatForCsv() []string
+type Flattener interface {
+	Flatten() []string
 }
 
 type OutputBase struct {
@@ -31,15 +31,7 @@ type SuccessOutputResult struct {
 	ConnectionResult *conn.ConnectionResult
 }
 
-func (r *ErrorOutputResult) FormatForCsv() []string {
-	return []string{}
-}
-
-func (r *SuccessOutputResult) FormatForCsv() []string {
-	return []string{}
-}
-
-func newErrorOutputResult(id, inputUrl, err string) Persister {
+func newErrorOutputResult(id, inputUrl, err string) Flattener {
 	return &ErrorOutputResult{
 		OutputBase: OutputBase{
 			Id: id,
@@ -49,7 +41,7 @@ func newErrorOutputResult(id, inputUrl, err string) Persister {
 	}
 }
 
-func newSuccessOutputResult(id, inputUrl string, connectionResult *conn.ConnectionResult) Persister {
+func newSuccessOutputResult(id, inputUrl string, connectionResult *conn.ConnectionResult) Flattener {
 	return &SuccessOutputResult{
 		OutputBase: OutputBase{
 			Id: id,
@@ -57,6 +49,14 @@ func newSuccessOutputResult(id, inputUrl string, connectionResult *conn.Connecti
 		},
 		ConnectionResult: connectionResult,
 	}
+}
+
+func (r *ErrorOutputResult) Flatten() []string {
+	return []string{}
+}
+
+func (r *SuccessOutputResult) Flatten() []string {
+	return []string{}
 }
 
 type Column uint16
@@ -76,9 +76,8 @@ const (
 )
 
 var (
-	outputSuccessData = make([]Persister, 10000) // Arbitrary estimated sizes
-	outputErrorData = make([]Persister, 10000) // Arbitrary estimated sizes
-	// outputFailedData = make([]*conn.ConnectionResult, 5000)
+	outputSuccessData = make([]Flattener, 10000) // Arbitrary estimated size
+	outputErrorData = make([]Flattener, 5000) // Arbitrary estimated size
 )
 
 // Parse file
@@ -134,7 +133,7 @@ func main() {
 		}
 	}
 		// persist(outputSuccessData, outputSuccessPath)
-		persist(outputErrorPath, outputErrorData)
+		// persist(outputErrorPath, outputErrorData)
 }
 
 // Attempts to parse the given string into a URL.
@@ -169,39 +168,40 @@ func conform(url string) (string, error) {
 	return url, nil
 }
 
-func prepare(persister []Persister, dataSize int) [][]string {
-	data := make([][]string, dataSize)
-	for _, p := range persister {
-		data = append(data, p.FormatForCsv())
-	}
-	return data
-}
+func persist(relPath string, fs []Flattener) error {
+	// data := [][]string{
+	// 		{"vegetables", "fruits"},
+	// 		{"carrot", "banana"},
+	// 		{"potato", "strawberry"},
+	// 	}
 
-func persist(relPath string, ps []Persister) error {
-	data := [][]string{
-			{"vegetables", "fruits"},
-			{"carrot", "banana"},
-			{"potato", "strawberry"},
-		}
+	data := prepare(fs)
 
-    // create a file
-    file, err := os.Create(relPath)
+    f, err := os.Create(relPath)
     if err != nil {
-        log.Fatal(err)
+        log.Fatal("error while creating output file", err)
     }
-    defer file.Close()
+    defer f.Close()
 
-    // initialize csv writer
-    writer := csv.NewWriter(file)
+    writer := csv.NewWriter(f)
 
     defer writer.Flush()
 
-    // write all rows at once
     writer.WriteAll(data)
+    if err != nil {
+        log.Fatal("error while writing to output file", err)
+    }
 
-    // write single row
-    extraData := []string{"lettuce", "raspberry"}
-    writer.Write(extraData)
+	log.Println("Persisted successfully to file: ", relPath)
 
 	return nil
+}
+
+// Prepares the slice of Flatteners to be persisted
+func prepare(fs []Flattener) [][]string {
+	data := make([][]string, len(fs))
+	for _, p := range fs {
+		data = append(data, p.Flatten())
+	}
+	return data
 }

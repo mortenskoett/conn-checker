@@ -7,33 +7,33 @@ import (
 )
 
 const (
-	maxRedirects = 20
+	maxRedirects       = 20
 	connectTimeoutSecs = 5
 )
 
 type Redirect struct {
-	Url string
+	Url    string
 	Status int
 }
 
 type ConnectionResult struct {
-	Status int
-	ReqUrl string
-	EndUrl string
+	Status    string
+	ReqUrl    string
+	EndUrl    string
 	Redirects []Redirect // Url to statuscode
 }
 
-// Makes a GET request to the given URL. If URL is valid then a max of n 
-// redirects are followed to determine the status of the end url. 
+// Makes a GET request to the given URL. If URL is valid then a max of n
+// redirects are followed to determine the status of the end url.
 func Connect(url string) (*ConnectionResult, error) {
 	result := &ConnectionResult{
-		Status: 0,
-		ReqUrl: "",
-		EndUrl: "",
+		Status:    "",
+		ReqUrl:    "",
+		EndUrl:    "",
 		Redirects: make([]Redirect, 0, 1),
 	}
 
-    client := &http.Client{
+	client := &http.Client{
 		Timeout: connectTimeoutSecs * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= maxRedirects {
@@ -56,7 +56,7 @@ func Connect(url string) (*ConnectionResult, error) {
 	defer resp.Body.Close()
 
 	// Collect data after redirects
-	result.Status = resp.StatusCode
+	result.Status = resp.Status
 	result.ReqUrl = url
 	result.EndUrl = resp.Request.URL.String()
 	result.Redirects = append(result.Redirects, Redirect{Url: result.EndUrl, Status: resp.StatusCode}) // Set end url as final element in Redirects

@@ -1,2 +1,2 @@
 # conn-checker
-Tool to check connection to URL's.
+Tool to batch check and validate connections to URL's.

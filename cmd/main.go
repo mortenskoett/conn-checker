@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/msk-siteimprove/conn-checker/pkg/conn"
 )
@@ -18,7 +19,7 @@ type Flattener interface {
 }
 
 type OutputBase struct {
-	Id string
+	Id                 string
 	UnmodifiedInputUrl string
 }
 
@@ -35,7 +36,7 @@ type SuccessOutputResult struct {
 func newErrorOutputResult(id, inputUrl, err string) Flattener {
 	return &ErrorOutputResult{
 		OutputBase: OutputBase{
-			Id: id,
+			Id:                 id,
 			UnmodifiedInputUrl: inputUrl,
 		},
 		Error: err,
@@ -45,7 +46,7 @@ func newErrorOutputResult(id, inputUrl, err string) Flattener {
 func newSuccessOutputResult(id, inputUrl string, connectionResult *conn.ConnectionResult) Flattener {
 	return &SuccessOutputResult{
 		OutputBase: OutputBase{
-			Id: id,
+			Id:                 id,
 			UnmodifiedInputUrl: inputUrl,
 		},
 		ConnectionResult: connectionResult,
@@ -54,14 +55,14 @@ func newSuccessOutputResult(id, inputUrl string, connectionResult *conn.Connecti
 
 func (r *ErrorOutputResult) Flatten() []string {
 	// Should match columnNames
-	return []string {
+	return []string{
 		r.Id, r.UnmodifiedInputUrl, r.Error,
 	}
 }
 
 func (r *SuccessOutputResult) Flatten() []string {
 	// Should match columnNames
-	return []string {
+	return []string{
 		r.Id,
 		r.UnmodifiedInputUrl,
 		r.ConnectionResult.ReqUrl,
@@ -75,32 +76,74 @@ type Column uint16
 
 const (
 	// Column in the document
-	IdCol Column = 0
+	IdCol  Column = 0
 	UrlCol Column = 29
 
 	// Input file
-	inputFilePath string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
-	// inputFilePath string = "data/testdata.csv"
+	// inputFilePath string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+	inputFilePath string = "testdata.txt"
 
 	// Output files
 	outputSuccessPath string = "output/success.csv"
-	outputErrorPath string = "output/errors.csv"
+	outputErrorPath   string = "output/errors.csv"
+
+	// Number of used goroutines
+	workerCount int = 1
 )
 
-// Parse file
-// Validate to some extend
-// Check connection
-// Write to separate files based on success
+type UrlJob struct {
+	Id       string
+	CsvEntry []string
+}
+
+// Read in csv to memory
+// Fill job queue
+// Workers process elements and each persist result to separate file
+// Combine relevant results into errors, successes output files
 func main() {
 	fmt.Println("Conn-checker started")
 
-    f, err := os.Open(inputFilePath)
-    if err != nil {
-        log.Fatal("error while opening the file:", err)
-    }
-    defer f.Close()
+	var wg sync.WaitGroup
 
-    reader := csv.NewReader(f)
+	// Job queue
+	urlJobsChan := make(chan UrlJob)
+
+	// Start workers
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go urlWorker(urlJobsChan, &wg)
+	}
+
+	// Fill queue with jobs
+	fillJobQueue(urlJobsChan)
+
+	// Wait for workers to finish their work
+	close(urlJobsChan)
+	wg.Wait()
+
+	fmt.Println("Conn-checker finished")
+}
+
+func urlWorker(ch <-chan UrlJob, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for job := range ch {
+		// TODO: Deal with the job in each go routine
+		fmt.Println(job)
+	}
+}
+
+func fillJobQueue(ch chan<- UrlJob) {
+	// TODO: Fill Jobqueue with data from csv file
+}
+
+func run() {
+	f, err := os.Open(inputFilePath)
+	if err != nil {
+		log.Fatal("error while opening the file:", err)
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
 
 	// Read specification from first line
 	specification, err := reader.Read()
@@ -119,16 +162,16 @@ func main() {
 	}
 
 	outputSuccessData := make([]Flattener, 0, 10000) // Arbitrary estimated size
-	outputErrorData := make([]Flattener, 0, 5000) // Arbitrary estimated size
+	outputErrorData := make([]Flattener, 0, 5000)    // Arbitrary estimated size
 
-    for {
-        line, err := reader.Read()
-        if err == io.EOF {
-            break
-        }
-        if err != nil {
-            log.Fatalln("error parsing input file entry:", line, err)
-        }
+	for {
+		line, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalln("error parsing input file entry:", line, err)
+		}
 
 		// Columns read from csv
 		idEntry := line[IdCol]
@@ -149,11 +192,11 @@ func main() {
 		}
 
 		// if result.Status >= 200 && result.Status < 300 {
-			log.Println("connection result added:", result)
-			outputSuccessData = append(outputSuccessData, newSuccessOutputResult(idEntry, urlEntry, result))
+		log.Println("connection result added:", result)
+		outputSuccessData = append(outputSuccessData, newSuccessOutputResult(idEntry, urlEntry, result))
 		// } else {
-			// log.Println("error added: statuscode:", result)
-			// outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
+		// log.Println("error added: statuscode:", result)
+		// outputErrorData = append(outputErrorData, newErrorOutputResult(idEntry, urlEntry, err.Error()))
 		// }
 	}
 
@@ -200,20 +243,20 @@ func conform(url string) (string, error) {
 func persist(relPath string, fs []Flattener, columnNames []string) error {
 	data := prepare(fs, columnNames)
 
-    f, err := os.Create(relPath)
-    if err != nil {
-        log.Fatal("error while creating output file", err)
-    }
-    defer f.Close()
+	f, err := os.Create(relPath)
+	if err != nil {
+		log.Fatal("error while creating output file", err)
+	}
+	defer f.Close()
 
-    writer := csv.NewWriter(f)
+	writer := csv.NewWriter(f)
 
-    defer writer.Flush()
+	defer writer.Flush()
 
-    writer.WriteAll(data)
-    if err != nil {
-        log.Fatal("error while writing to output file", err)
-    }
+	writer.WriteAll(data)
+	if err != nil {
+		log.Fatal("error while writing to output file", err)
+	}
 
 	log.Println("Persisted successfully to file: ", relPath)
 	return nil

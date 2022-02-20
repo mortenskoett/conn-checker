@@ -42,8 +42,8 @@ func main() {
 
 	// Create url job queue
 	var wg sync.WaitGroup
-	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir, outputSuccessFile, outputErrorFile)
 
+	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir, outputSuccessFile, outputErrorFile)
 	err = work.ReadCsvIntoQueue(inputFileFile, urlJobQueue)
 	if err != nil {
 		log.Fatal(err)
@@ -67,7 +67,7 @@ func main() {
 	// Combine tmp files together
 	err = persist.Combine(tmpOutputDir, tmpSuccessSuffix, tmpErrorSuffix, outputSuccessFile, outputErrorFile)
 	if err != nil {
-		log.Println("error combining tmp files into output files:", err)
+		log.Fatal("error combining tmp files into output files:", err)
 	}
 
 	fmt.Println("Conn-checker finished")

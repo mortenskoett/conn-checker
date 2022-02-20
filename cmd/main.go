@@ -42,7 +42,7 @@ func main() {
 
 	// Create url job queue
 	var wg sync.WaitGroup
-	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir, outputSuccessFile, outputErrorFile)
+	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir)
 	err = work.ReadCsvIntoQueue(inputFileFile, urlJobQueue)
 	if err != nil {
 		log.Fatal(err)

@@ -34,13 +34,13 @@ const (
 
 // Creates an empty channel that can receive UrlJobs and sets workerCount workers to take jobs from
 // the queue.
-func PrepareJobQueue(workerCount int, wg *sync.WaitGroup, tmpOutputDir, successOutputPath, errorOutputPath string) chan UrlJob {
+func PrepareJobQueue(workerCount int, wg *sync.WaitGroup, tmpOutputDir string) chan UrlJob {
 	ch := make(chan UrlJob)
 
 	// Start workers
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
-		go urlWorker(ch, wg, tmpOutputDir, successOutputPath, errorOutputPath)
+		go urlWorker(ch, wg, tmpOutputDir)
 	}
 
 	return ch
@@ -49,12 +49,12 @@ func PrepareJobQueue(workerCount int, wg *sync.WaitGroup, tmpOutputDir, successO
 // The worker tries to parse the URL. If the operation succeeds then the worker attempts to connect
 // to the url while collecting redirects. Both when failing or succeeding the worker writes the
 // result to a separate file for each job.
-func urlWorker(ch <-chan UrlJob, wg *sync.WaitGroup, tmpOutputDir, successOutputPath, errorOutputPath string) {
+func urlWorker(ch <-chan UrlJob, wg *sync.WaitGroup, tmpOutputDir string) {
 	defer wg.Done()
 	for job := range ch {
 		parsedUrl, err := conn.ParseToUrl(job.Url)
 		if err != nil {
-			log.Print(job.Id, "error added: parsing to url", parsedUrl, err)
+			log.Print(job.Id, "error added: parsing to url:", parsedUrl, err)
 			errorPath := tmpOutputDir + job.Id + ".err"
 			persist.PersistCsvLine(errorPath, NewErrorCsvOutput(job, err))
 			continue

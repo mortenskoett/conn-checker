@@ -26,18 +26,15 @@ func NewSuccessCsvOutput(job UrlJob, cr *conn.ConnectionResult) []string {
 
 type Column uint16
 
-// TODO: For debugging
 const (
 	// Column in the document
-	// IdCol  Column = 0
-	// UrlCol Column = 29
 	IdCol  Column = 0
-	UrlCol Column = 1
+	UrlCol Column = 29
 )
 
 // Creates an empty channel that can receive UrlJobs and sets workerCount workers to take jobs from
 // the queue.
-func PrepareWorkQueue(workerCount int, wg *sync.WaitGroup, tmpOutputDir, successOutputPath, errorOutputPath string) chan UrlJob {
+func PrepareJobQueue(workerCount int, wg *sync.WaitGroup, tmpOutputDir, successOutputPath, errorOutputPath string) chan UrlJob {
 	ch := make(chan UrlJob)
 
 	// Start workers

@@ -13,11 +13,7 @@ import (
 
 const (
 	// Input file
-	// TODO
-	// inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
-	// inputFileFile string = "data/hometestdata_small.csv"
-	// inputFileFile string = "data/hometestdata_very_small.csv"
-	inputFileFile string = "data/hometestdata_big.csv"
+	inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
 
 	// Final output files
 	outputSuccessFile string = "output/success.csv"
@@ -46,8 +42,7 @@ func main() {
 
 	// Create url job queue
 	var wg sync.WaitGroup
-
-	urlJobQueue := work.PrepareWorkQueue(workerCount, &wg, tmpOutputDir, outputSuccessFile, outputErrorFile)
+	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir, outputSuccessFile, outputErrorFile)
 
 	err = work.ReadCsvIntoQueue(inputFileFile, urlJobQueue)
 	if err != nil {
@@ -58,15 +53,16 @@ func main() {
 	close(urlJobQueue)
 	wg.Wait()
 
-	// Use Output format to write csv headers to output files
-	connResultHeader := conn.ConnectionResult{
+	// Use Output format to write csv column names to output files
+	urlJobColumnNames := work.UrlJob{Id: "Id", Url: "Original URL"}
+	connResultColumnNames := conn.ConnectionResult{
 		ReqUrl:    "Request URL",
 		EndUrl:    "End URL",
 		Status:    "Status",
 		Redirects: []conn.Redirect{conn.Redirect{Url: "Redirects", Status: -1}}}
 
-	persist.PersistCsvLine(outputSuccessFile, work.NewSuccessCsvOutput(work.UrlJob{Id: "Id", Url: "Original URL"}, &connResultHeader))
-	persist.PersistCsvLine(outputErrorFile, work.NewErrorCsvOutput(work.UrlJob{Id: "Id", Url: "Original URL"}, fmt.Errorf("Error")))
+	persist.PersistCsvLine(outputSuccessFile, work.NewSuccessCsvOutput(urlJobColumnNames, &connResultColumnNames))
+	persist.PersistCsvLine(outputErrorFile, work.NewErrorCsvOutput(urlJobColumnNames, fmt.Errorf("Error")))
 
 	// Combine tmp files together
 	err = persist.Combine(tmpOutputDir, tmpSuccessSuffix, tmpErrorSuffix, outputSuccessFile, outputErrorFile)

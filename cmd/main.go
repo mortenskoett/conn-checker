@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -35,12 +34,15 @@ const (
 	UrlCol Column = 1
 
 	// Input file
+	// TODO
 	// inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
-	inputFileFile string = "data/hometestdata_small.csv"
-	// inputFileFile string = "data/hometestdata_very_small.csv"
+	// inputFileFile string = "data/hometestdata_small.csv"
+	inputFileFile string = "data/hometestdata_very_small.csv"
 
-	// Output for temporary files
-	tmpOutputDir string = "output/tmp/"
+	// Temporary output files
+	tmpOutputDir     string = "output/tmp/"
+	tmpSuccessSuffix string = ".suc"
+	tmpErrorSuffix   string = ".err"
 
 	// Final output files
 	outputSuccessFile string = "output/success.csv"
@@ -86,9 +88,9 @@ func main() {
 	wg.Wait()
 
 	// Stitch files together
-	err = combine(tmpOutputDir, outputSuccessFile, outputErrorFile)
+	err = combine(tmpOutputDir, tmpSuccessSuffix, tmpErrorSuffix, outputSuccessFile, outputErrorFile)
 	if err != nil {
-		log.Println("error combining tmp files into output files", err)
+		log.Println("error combining tmp files into output files:", err)
 	}
 
 	// TODO
@@ -106,6 +108,7 @@ func main() {
 // result to a separate file for each job.
 func urlWorker(ch <-chan UrlJob, wg *sync.WaitGroup) {
 
+	// TODO: Use param for paths
 	defer wg.Done()
 	for job := range ch {
 		parsedUrl, err := parseUrl(job.Url)
@@ -197,32 +200,48 @@ func conform(url string) (string, error) {
 	return url, nil
 }
 
-// Reads all *.suc and *.err files from tmpFilesDir and combines them into files
-// at successOutput and errorOutput.
-func combine(tmpFilesDir, successOutput, errorOutput string) error {
-	// success := make([][]strings, 0, 10000) // Arbitrary estimate
-	// errors := make([][]strings, 0, 5000)   // Arbitrary estimate
-
-	successes, err := os.Create(successOutput)
+// Reads all *.suc and *.err files from tmpFilesDir and combines them into separate files
+// located at successOutput and errorOutput.
+func combine(tmpFilesDir, successSuffix, errorSuffix, successOutput, errorOutput string) error {
+	// If the files do not exist, create them, and only append to the files
+	successes, err := os.OpenFile(successOutput, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return log.Fatal(err)
+		log.Fatal(err)
 	}
 	defer successes.Close()
 
-	errors, err := os.Create(errorOutput)
+	errors, err := os.OpenFile(errorOutput, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return log.Fatal(err)
+		log.Fatal(err)
 	}
 	defer errors.Close()
 
-	tmpFiles, err := ioutil.ReadDir(tmpFilesDir)
+	tmpFiles, err := os.ReadDir(tmpFilesDir)
 	if err != nil {
-		return log.Fatal(err)
+		return err
 	}
 
+	// Write each tmp file content to matching output file
 	for _, f := range tmpFiles {
-		if strings.HasSuffix(f.Name, ".suc") {
-		} else if strings.HasSuffix(f.Name, ".err") {
+		if strings.HasSuffix(f.Name(), successSuffix) {
+			tmpContents, err := os.ReadFile(tmpFilesDir + f.Name())
+			if err != nil {
+				return fmt.Errorf("error while reading tmp file: %w", err)
+			}
+
+			if _, err := successes.Write(tmpContents); err != nil {
+				return fmt.Errorf("error while writing to output file: %w", err)
+			}
+
+		} else if strings.HasSuffix(f.Name(), errorSuffix) {
+			tmpContents, err := os.ReadFile(tmpFilesDir + f.Name())
+			if err != nil {
+				return fmt.Errorf("error while reading tmp file: %w", err)
+			}
+
+			if _, err := errors.Write(tmpContents); err != nil {
+				return fmt.Errorf("error while writing to output file: %w", err)
+			}
 		}
 	}
 

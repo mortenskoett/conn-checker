@@ -57,16 +57,16 @@ func Combine(tmpFilesDir, successSuffix, errorSuffix, successOutput, errorOutput
 }
 
 // Persists a single row as CSV to the designated file which is truncated in the process.
-func PersistCsvLine(relPath string, data []string) error {
-	return persistMultiple(relPath, [][]string{data})
+func PersistCsvLine(path string, data []string) error {
+	return persistMultiple(path, [][]string{data})
 }
 
 // Persist data as CSV to specific location overwriting any file already there.
-func persistMultiple(relPath string, data [][]string) error {
+func persistMultiple(path string, data [][]string) error {
 
-	f, err := os.Create(relPath)
+	f, err := os.Create(path)
 	if err != nil {
-		log.Fatal("error while creating output file", relPath, err)
+		log.Fatal("error while creating output file", path, err)
 	}
 	defer f.Close()
 

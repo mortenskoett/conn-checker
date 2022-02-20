@@ -2,13 +2,16 @@ package conn
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
 const (
 	maxRedirects       = 20
-	connectTimeoutSecs = 5
+	connectTimeoutSecs = 10
 )
 
 type Redirect struct {
@@ -62,4 +65,36 @@ func Connect(url string) (*ConnectionResult, error) {
 	result.Redirects = append(result.Redirects, Redirect{Url: result.EndUrl, Status: resp.StatusCode}) // Set end url as final element in Redirects
 
 	return result, nil
+}
+
+// Attempts to parse the given string into URL format.
+func ParseToUrl(u string) (*url.URL, error) {
+	conformedUrl, err := conform(u)
+	if err != nil {
+		return nil, err
+	}
+
+	parsedUrl, err := url.Parse(conformedUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedUrl, err
+}
+
+// Makes asssumptions about input string and modifies it to be handlable as URL.
+func conform(url string) (string, error) {
+	if url == "" {
+		return "", fmt.Errorf("the given url was empty")
+	}
+
+	if !strings.HasPrefix(url, "http") {
+		var sb strings.Builder
+		sb.WriteString("http://")
+		sb.WriteString(url)
+		return sb.String(), nil
+	}
+
+	// Otherwise we assume nothing is wrong.
+	return url, nil
 }

@@ -3,8 +3,10 @@ package conn
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -68,6 +70,28 @@ func Connect(url *url.URL) (*ConnectionResult, error) {
 	result.Redirects = append(result.Redirects, Redirect{Url: result.EndUrl, Status: resp.StatusCode}) // Set end url as final element in Redirects
 
 	return result, nil
+}
+
+// Download body of url directly to a local file which is created at 'filepath'.
+func DownloadFileTo(url string, filepath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("error downloading file %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("could not download %s with status code %d", url, resp.StatusCode)
+	}
+
+	f, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("error creating local file %s: %w", filepath, err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, resp.Body)
+	return err
 }
 
 // Attempts to parse the given string into URL format.

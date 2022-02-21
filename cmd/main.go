@@ -12,7 +12,8 @@ import (
 
 const (
 	// Input file
-	inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+	// inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+	inputFileFile string = "data/testdata.csv"
 
 	// Final output files
 	outputSuccessFile string = "output/success.csv"
@@ -20,6 +21,7 @@ const (
 
 	// Temporary output files
 	tmpOutputDir     string = "output/tmp/"
+	robotsOutputDir	 string = "output/robots/"
 	tmpSuccessSuffix string = ".suc"
 	tmpErrorSuffix   string = ".err"
 
@@ -38,10 +40,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = os.MkdirAll(robotsOutputDir, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create url job queue
 	var wg sync.WaitGroup
-	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir)
+	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir, robotsOutputDir)
 	err = work.ReadCsvIntoQueue(inputFileFile, urlJobQueue)
 	if err != nil {
 		log.Fatal(err)

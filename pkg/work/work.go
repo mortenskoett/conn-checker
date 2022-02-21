@@ -43,13 +43,13 @@ const (
 
 // Creates an empty channel that can receive UrlJobs and sets workerCount workers to take jobs from
 // the queue.
-func PrepareJobQueue(workerCount int, wg *sync.WaitGroup, tmpOutputDir string) chan UrlJob {
+func PrepareJobQueue(workerCount int, wg *sync.WaitGroup, tmpOutputDir, robotsOutputDir string) chan UrlJob {
 	ch := make(chan UrlJob)
 
 	// Start workers
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
-		go urlWorker(ch, wg, tmpOutputDir)
+		go urlWorker(ch, wg, tmpOutputDir, robotsOutputDir)
 	}
 
 	return ch
@@ -58,29 +58,41 @@ func PrepareJobQueue(workerCount int, wg *sync.WaitGroup, tmpOutputDir string) c
 // The worker tries to parse the URL. If the operation succeeds then the worker attempts to connect
 // to the url while collecting redirects. Both when failing or succeeding the worker writes the
 // result to a separate file for each job.
-func urlWorker(ch <-chan UrlJob, wg *sync.WaitGroup, tmpOutputDir string) {
+func urlWorker(ch <-chan UrlJob, wg *sync.WaitGroup, tmpOutputDir, robotsOutputDir string) {
 	defer wg.Done()
+	var localpath string
+
 	for job := range ch {
 		parsedUrl, err := conn.ParseToUrl(job.Url)
 		if err != nil {
+			localpath = tmpOutputDir + job.Id + ".err"
+			persist.PersistCsvLine(localpath, NewErrorCsvOutput(job, err))
 			log.Print(job.Id, "error added: parsing to url:", parsedUrl, err)
-			errorPath := tmpOutputDir + job.Id + ".err"
-			persist.PersistCsvLine(errorPath, NewErrorCsvOutput(job, err))
 			continue
 		}
 
-		result, err := conn.Connect(parsedUrl.String())
+		result, err := conn.Connect(parsedUrl)
 		if err != nil {
+			localpath = tmpOutputDir + job.Id + ".err"
+			persist.PersistCsvLine(localpath, NewErrorCsvOutput(job, err))
 			log.Println(job.Id, "error added: connecting to site:", result, err)
-			errorPath := tmpOutputDir + job.Id + ".err"
-			persist.PersistCsvLine(errorPath, NewErrorCsvOutput(job, err))
 			continue
 		}
 
-		// No error happened trying to get status code
+		// Download robots.txt
+		if result.StatusCode == 200 {
+			robotsTxtUrl := result.EndUrl.Scheme + "://" + result.EndUrl.Host + "/robots.txt"
+			localpath = robotsOutputDir + job.Id + ".rob"
+			err = conn.DownloadFileTo(robotsTxtUrl, localpath)
+			if err != nil {
+				log.Println("error reading robots.txt: ", err)
+			}
+		}
+
+		// No error happened
+		localpath = tmpOutputDir + job.Id + ".suc"
+		persist.PersistCsvLine(localpath, NewSuccessCsvOutput(job, result))
 		log.Println(job.Id, "success added: connection result:", result)
-		successPath := tmpOutputDir + job.Id + ".suc"
-		persist.PersistCsvLine(successPath, NewSuccessCsvOutput(job, result))
 	}
 }
 

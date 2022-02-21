@@ -15,24 +15,26 @@ const (
 )
 
 type Redirect struct {
-	Url    string
-	Status int
+	Url	 	*url.URL
+	Status 	int
 }
 
 type ConnectionResult struct {
 	Status    string
-	ReqUrl    string
-	EndUrl    string
+	StatusCode int
+	ReqUrl    *url.URL
+	EndUrl    *url.URL
 	Redirects []Redirect // Url to statuscode
 }
 
-// Makes a GET request to the given URL. If URL is valid then a max of n
-// redirects are followed to determine the status of the end url.
-func Connect(url string) (*ConnectionResult, error) {
+// Makes a GET request to the given URL. If URL is valid then a max of
+// 'maxRedirects' redirects are followed to determine the status of the end url.
+func Connect(url *url.URL) (*ConnectionResult, error) {
 	result := &ConnectionResult{
 		Status:    "",
-		ReqUrl:    "",
-		EndUrl:    "",
+		StatusCode: 0,
+		ReqUrl:    nil,
+		EndUrl:    nil,
 		Redirects: make([]Redirect, 0, 1),
 	}
 
@@ -44,14 +46,14 @@ func Connect(url string) (*ConnectionResult, error) {
 			}
 
 			// Collect data about redirects
-			fromUrl := via[len(via)-1].URL.String()
+			fromUrl := via[len(via)-1].URL
 			fromStatus := req.Response.StatusCode
 			result.Redirects = append(result.Redirects, Redirect{Url: fromUrl, Status: fromStatus}) // Set each redirect with status code
 			return nil
 		},
 	}
 
-	resp, err := client.Get(url)
+	resp, err := client.Get(url.String())
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +62,9 @@ func Connect(url string) (*ConnectionResult, error) {
 
 	// Collect data after redirects
 	result.Status = resp.Status
+	result.StatusCode = resp.StatusCode
 	result.ReqUrl = url
-	result.EndUrl = resp.Request.URL.String()
+	result.EndUrl = resp.Request.URL
 	result.Redirects = append(result.Redirects, Redirect{Url: result.EndUrl, Status: resp.StatusCode}) // Set end url as final element in Redirects
 
 	return result, nil
@@ -69,12 +72,12 @@ func Connect(url string) (*ConnectionResult, error) {
 
 // Attempts to parse the given string into URL format.
 func ParseToUrl(u string) (*url.URL, error) {
-	conformedUrl, err := conform(u)
+	schemedUrl, err := addScheme(u)
 	if err != nil {
 		return nil, err
 	}
 
-	parsedUrl, err := url.Parse(conformedUrl)
+	parsedUrl, err := url.Parse(schemedUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +86,7 @@ func ParseToUrl(u string) (*url.URL, error) {
 }
 
 // Makes asssumptions about input string and modifies it to be handlable as URL.
-func conform(url string) (string, error) {
+func addScheme(url string) (string, error) {
 	if url == "" {
 		return "", fmt.Errorf("the given url was empty")
 	}

@@ -7,9 +7,14 @@ import (
 )
 
 func TestConnect(t *testing.T) {
-	url := "https://asfo.sanita.fvg.it"
-	res, err := Connect(url)
+	urlstr := "https://asfo.sanita.fvg.it"
 
+	url, err  := ParseToUrl(urlstr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := Connect(url)
 	if err != nil {
 		log.Fatal(err)
 	}

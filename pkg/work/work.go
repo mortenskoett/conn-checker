@@ -20,8 +20,17 @@ type UrlJob struct {
 func NewErrorCsvOutput(job UrlJob, err error) []string {
 	return []string{job.Id, job.Url, err.Error()}
 }
+
+func NewErrorColumnNames() []string {
+	return []string{"Id", "Original URL", "Error"}
+}
+
 func NewSuccessCsvOutput(job UrlJob, cr *conn.ConnectionResult) []string {
-	return []string{job.Id, job.Url, cr.ReqUrl, cr.EndUrl, cr.Status, fmt.Sprint(cr.Redirects)}
+	return []string{job.Id, job.Url, cr.ReqUrl.String(), cr.EndUrl.String(), cr.Status, fmt.Sprint(cr.Redirects)}
+}
+
+func NewSuccessColumnNames() []string {
+	return []string{"Id", "Original URL", "Request URL", "End URL", "Status", "Redirects"}
 }
 
 type Column uint16

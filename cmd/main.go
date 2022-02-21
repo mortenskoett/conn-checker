@@ -6,7 +6,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/msk-siteimprove/conn-checker/pkg/conn"
 	"github.com/msk-siteimprove/conn-checker/pkg/persist"
 	"github.com/msk-siteimprove/conn-checker/pkg/work"
 )
@@ -52,16 +51,9 @@ func main() {
 	close(urlJobQueue)
 	wg.Wait()
 
-	// Use Output format to write csv column names to output files
-	urlJobColumnNames := work.UrlJob{Id: "Id", Url: "Original URL"}
-	connResultColumnNames := conn.ConnectionResult{
-		ReqUrl:    "Request URL",
-		EndUrl:    "End URL",
-		Status:    "Status",
-		Redirects: []conn.Redirect{conn.Redirect{Url: "Redirects", Status: -1}}}
-
-	persist.PersistCsvLine(outputSuccessFile, work.NewSuccessCsvOutput(urlJobColumnNames, &connResultColumnNames))
-	persist.PersistCsvLine(outputErrorFile, work.NewErrorCsvOutput(urlJobColumnNames, fmt.Errorf("Error")))
+	// Write out first row as column names of output files
+	persist.PersistCsvLine(outputSuccessFile, work.NewSuccessColumnNames())
+	persist.PersistCsvLine(outputErrorFile, work.NewErrorColumnNames())
 
 	// Combine tmp files together
 	err = persist.Combine(tmpOutputDir, tmpSuccessSuffix, tmpErrorSuffix, outputSuccessFile, outputErrorFile)

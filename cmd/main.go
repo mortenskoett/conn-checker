@@ -12,8 +12,8 @@ import (
 
 const (
 	// Input file
-	// inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
-	inputFileFile string = "data/testdata.csv"
+	inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+	// inputFileFile string = "data/testdata.csv"
 
 	// Final output files
 	outputSuccessFile string = "output/success.csv"

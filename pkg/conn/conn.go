@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 const (
@@ -90,7 +92,10 @@ func DownloadFileTo(url string, filepath string) error {
 	}
 	defer f.Close()
 
-	_, err = io.Copy(f, resp.Body)
+	// The Decoder transforms the source text to UTF-8 text. ISO8859-1 == Latin1.
+	utf8Encoded := charmap.ISO8859_1.NewDecoder().Reader(resp.Body)
+
+	_, err = io.Copy(f, utf8Encoded)
 	return err
 }
 

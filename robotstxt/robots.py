@@ -29,7 +29,7 @@ output_file = open(output_path, 'a')
 column_names = input_file.readline()
 output_file.write(insert_into_csv_at(STATUS_IDX+1, "Robots.txt OK", column_names))
 
-print("Checking robots.txt of URL's from {0}...".format(input_file))
+print("Checking robots.txt of URL's from {0}".format(input_path))
 print("Saving to {0}".format(output_path))
 while True:
     line = input_file.readline()
@@ -51,9 +51,13 @@ while True:
                 output_file.write(insert_into_csv_at(STATUS_IDX+1, str(is_allowed), line))
         except UnicodeDecodeError as e:
             error = "error: robots.txt with id {0} is not UTF-8 encoded: {1}".format(id_suc, e)
-            output_file.write(insert_into_csv_at(STATUS_IDX+1, "N/A", line))
+            output_file.write(insert_into_csv_at(STATUS_IDX+1, "Error", line))
             parse_errors.append(error)
             continue
+    else:
+        # Add line with empty robots.txt if not present
+        output_file.write(insert_into_csv_at(STATUS_IDX+1, "None", line))
+
 
 input_file.close()
 output_file.close()

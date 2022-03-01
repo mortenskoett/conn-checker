@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"log"
 	"os"
 	"sync"
@@ -12,7 +12,7 @@ import (
 
 const (
 	// Input file
-	inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
+	// inputFileFile string = "data/d09adf99-dc10-4349-8c53-27b1e5aa97b6.csv"
 	// inputFileFile string = "data/testdata.csv"
 
 	// Final output files
@@ -33,7 +33,17 @@ const (
 // Workers process elements and each persist result to separate file
 // Combine relevant results into errors, successes output files
 func main() {
-	fmt.Println("Conn-checker started")
+	log.Println("Conn-checker started")
+
+	// Parse CLI flags
+	inputFile := flag.String("file", "", "Defines the path to the input .csv file")
+	if *inputFile == "" {
+		log.Println("Input file path must be given")
+		flag.PrintDefaults()
+		return
+	}
+
+	flag.Parse()
 
 	// Create dir to store temp files
 	err := os.MkdirAll(tmpOutputDir, os.ModePerm)
@@ -48,7 +58,7 @@ func main() {
 	// Create url job queue
 	var wg sync.WaitGroup
 	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir, robotsOutputDir)
-	err = work.ReadCsvIntoQueue(inputFileFile, urlJobQueue)
+	err = work.ReadCsvIntoQueue(*inputFile, urlJobQueue)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,5 +77,5 @@ func main() {
 		log.Fatal("error combining tmp files into output files:", err)
 	}
 
-	fmt.Println("Conn-checker finished")
+	log.Println("Conn-checker finished")
 }

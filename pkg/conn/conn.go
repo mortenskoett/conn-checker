@@ -111,7 +111,7 @@ func ParseToUrl(u string) (*url.URL, error) {
 		return nil, err
 	}
 
-	return parsedUrl, err
+	return parsedUrl, nil
 }
 
 // Makes asssumptions about input string and modifies it to be handlable as URL.

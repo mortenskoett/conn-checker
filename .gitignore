@@ -12,6 +12,7 @@ data/
 output/
 runs/
 external/
+main
 
 # Test binary, built with `go test -c`
 *.test

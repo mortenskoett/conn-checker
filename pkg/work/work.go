@@ -28,18 +28,18 @@ type JobResultError struct {
 
 // Creates an empty channel that can receive UrlJobs and sets workerCount workers to take jobs from
 // the queue.
-func PrepareJobQueues(workerCount int, wg *sync.WaitGroup) (chan UrlJob, JobResultSuccess, JobResultError){
+func PrepareJobQueue(workerCount uint8, wg *sync.WaitGroup) (chan UrlJob, chan JobResultSuccess, chan JobResultError){
 	jobCh := make(chan UrlJob)
 	successCh := make(chan JobResultSuccess)
 	errorCh := make(chan JobResultError)
 
 	// Start workers
-	for i := 0; i < workerCount; i++ {
+	for i := uint8(0); i < workerCount; i++ {
 		wg.Add(1)
 		go urlWorker(jobCh, successCh, errorCh, wg)
 	}
 
-	return jobCh, <-successCh, <-errorCh
+	return jobCh, successCh, errorCh
 }
 
 // The worker tries to parse the URL. If the operation succeeds then the worker attempts to connect

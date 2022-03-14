@@ -32,12 +32,17 @@ func main() {
 	}
 }
 
+func ping(w http.ResponseWriter, r *http.Request) {
+	returnStatus(w, "pong", http.StatusOK)
+}
+
 func validate(w http.ResponseWriter, r *http.Request) {
 	var urls []work.UrlJob
 
 	status, err := decodeJsonBodyInto(w, r, urls)
 	if err != nil {
 		returnStatus(w, err.Error(), status)
+		return
 	}
 
 	log.Println(urls)
@@ -73,10 +78,7 @@ func validate(w http.ResponseWriter, r *http.Request) {
 	w.Write(json)
 }
 
-func ping(w http.ResponseWriter, r *http.Request) {
-	returnStatus(w, "pong", http.StatusOK)
-}
-
+// Handling of input json request body
 func decodeJsonBodyInto(w http.ResponseWriter, r *http.Request, outputVar interface{}) (int, error) {
 	if contentType := r.Header.Get("Content-Type"); contentType != "" {
 			returnStatus(w, "Content-Type is not application/json", http.StatusUnsupportedMediaType)
@@ -91,7 +93,8 @@ func decodeJsonBodyInto(w http.ResponseWriter, r *http.Request, outputVar interf
 	err := decoder.Decode(&outputVar)
 	if err != nil {
 		if errors.As(err, &unmarshalTypeError) {
-			msg := fmt.Sprintf("Request body contains an invalid value for the %q field (at position %d)", unmarshalTypeError.Field, unmarshalTypeError.Offset)
+			msg := fmt.Sprintf("Request body contains an invalid value for the %q field (at position %d)", 
+								unmarshalTypeError.Field, unmarshalTypeError.Offset)
 			return  http.StatusBadRequest, errors.New(msg)
 
 		} else if errors.As(err, &syntaxError) {
@@ -107,10 +110,17 @@ func decodeJsonBodyInto(w http.ResponseWriter, r *http.Request, outputVar interf
 }
 
 func returnStatus(w http.ResponseWriter, message string, status int) {
+	log.Println(status, message)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
+
 	res := make(map[string]string)
 	res["message"] = message
-	json, _ := json.Marshal(res)
-	w.Write(json)
+
+	err := json.NewEncoder(w).Encode(res)
+	if err != nil {
+		log.Fatalf("error happened during JSON encoding of response: %s", err)
+	}
 }
+

@@ -1,15 +1,6 @@
 # conn-checker
 Tool to batch check and validate connections to URL's.
 
-### SPEC
-1. http url validation service
-    - interface: 1-2 validate-url endpoints e.g. a single url and batch
-    - in: json list of urls
-    - out: some meaningful collection of url validations based
-        - collect successful http status codes
-        - collect errors and suggestions
-        - return as json
-
 Example in/output:
 ```
 // in
@@ -45,16 +36,3 @@ Example in/output:
 	}
 }
 ```
-
-### TODO
-- keep intermediate results in memory
-- rewrite to use json data instead of csv
-- add api endpoints
-
-
-#### flow
-request -> 
-    json to UrlJob -> 
-        add to work queue ->
-            collect results in two piles as json -> 
-                return to sender

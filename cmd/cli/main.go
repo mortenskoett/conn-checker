@@ -2,12 +2,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
-	"sync"
 
-	"github.com/msk-siteimprove/conn-checker/pkg/persist"
-	"github.com/msk-siteimprove/conn-checker/pkg/work"
+	"github.com/msk-siteimprove/conn-checker/pkg/utils"
+	// "sync"
+	// "github.com/msk-siteimprove/conn-checker/pkg/persist"
+	// "github.com/msk-siteimprove/conn-checker/pkg/work"
 )
 
 const (
@@ -33,17 +35,18 @@ const (
 // Workers process elements and each persist result to separate file
 // Combine relevant results into errors, successes output files
 func main() {
-	log.Println("Conn-checker started")
 
 	// Parse CLI flags
 	inputFile := flag.String("file", "", "Defines the path to the input .csv file")
 	if *inputFile == "" {
-		log.Println("Input file path must be given")
-		flag.PrintDefaults()
+		log.Println("Input file path is required.")
+		printUsage()
 		return
 	}
 
 	flag.Parse()
+
+	log.Println("Conn-checker started")
 
 	// Create dir to store temp files
 	err := os.MkdirAll(tmpOutputDir, os.ModePerm)
@@ -56,26 +59,41 @@ func main() {
 	}
 
 	// Create url job queue
-	var wg sync.WaitGroup
-	urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir, robotsOutputDir)
-	err = work.ReadCsvIntoQueue(*inputFile, urlJobQueue)
-	if err != nil {
-		log.Fatal(err)
-	}
+
+	// var wg sync.WaitGroup
+	// urlJobQueue := work.PrepareJobQueue(workerCount, &wg, tmpOutputDir, robotsOutputDir)
+	// err = work.ReadCsvIntoQueue(*inputFile, urlJobQueue)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	// Wait for workers to finish processing urls
-	close(urlJobQueue)
-	wg.Wait()
+	// close(urlJobQueue)
+	// wg.Wait()
 
 	// Write out first row as column names of output files
-	persist.PersistCsvLine(outputSuccessFile, work.NewSuccessColumnNames())
-	persist.PersistCsvLine(outputErrorFile, work.NewErrorColumnNames())
+	// persist.PersistCsvLine(outputSuccessFile, work.NewSuccessColumnNames())
+	// persist.PersistCsvLine(outputErrorFile, work.NewErrorColumnNames())
 
 	// Combine tmp files together
-	err = persist.Combine(tmpOutputDir, tmpSuccessSuffix, tmpErrorSuffix, outputSuccessFile, outputErrorFile)
-	if err != nil {
-		log.Fatal("error combining tmp files into output files:", err)
-	}
+	// err = persist.Combine(tmpOutputDir, tmpSuccessSuffix, tmpErrorSuffix, outputSuccessFile, outputErrorFile)
+	// if err != nil {
+	// 	log.Fatal("error combining tmp files into output files:", err)
+	// }
 
 	log.Println("Conn-checker finished")
 }
+
+func printUsage() {
+	fmt.Println(utils.Logo())
+	fmt.Print("Description")
+	fmt.Println(`
+	Reads a bunch of URL end points from a csv file and returns another csv file containing the HTTP
+	and robotstxt results from contacting each endpoint. The input should be formatted in rows of
+	{id, url}. The URL does not need to be well formatted. Currently output is stored on disk as it
+	is collected in ./output.`)
+
+	fmt.Println("\nUsage")
+	flag.PrintDefaults()
+}
+

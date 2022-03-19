@@ -1,5 +1,6 @@
 # Dev notes
 
+### Sat Mar 19 04:41:00 PM CET 2022
 ### Spec
 1. http url validation service
     - interface: 1-2 validate-url endpoints e.g. a single url and batch
@@ -8,11 +9,6 @@
         - collect successful http status codes
         - collect errors and suggestions
         - return as json
-
-### Todo
-- keep intermediate results in memory
-- rewrite to use json data instead of csv
-- test enpoint
 
 #### Flow
 request -> 

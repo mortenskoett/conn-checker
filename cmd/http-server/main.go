@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/msk-siteimprove/conn-checker/pkg/utils"
 	"github.com/msk-siteimprove/conn-checker/pkg/work"
 )
 
@@ -22,8 +23,12 @@ const (
 )
 
 func main() {
+	// End points
 	http.HandleFunc("/ping", ping)
 	http.HandleFunc("/validate", validate)
+
+	fmt.Println(utils.Logo())
+	log.Println("Conn-checker starting")
 
 	log.Println("Listening on port", port)
 	err := http.ListenAndServe(port, nil)

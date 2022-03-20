@@ -1,5 +1,10 @@
 # Dev notes
 
+
+### Sun Mar 20 11:23:50 AM CET 2022
+- CLI has functionality in work/csv
+- http api is in work/json
+
 ### Sat Mar 19 04:41:00 PM CET 2022
 ### Spec
 1. http url validation service

@@ -37,7 +37,7 @@ func ping(w http.ResponseWriter, r *http.Request) {
 }
 
 func validate(w http.ResponseWriter, r *http.Request) {
-	var urls []work.UrlJob
+	var urls []work.JsonUrlJob
 
 	status, err := decodeJsonBodyInto(w, r, urls)
 	if err != nil {
@@ -49,7 +49,7 @@ func validate(w http.ResponseWriter, r *http.Request) {
 
 	// Create url job queue
 	var wg sync.WaitGroup
-	jobQueue, successOut, errorsOut := work.PrepareJobQueue(workerCount, &wg)
+	jobQueue, successOut, errorsOut := work.PrepareJsonWorkQueue(workerCount, &wg)
 
 	// Add urls to queue
 	for _, url := range urls {

@@ -7,7 +7,7 @@ import (
 	"github.com/msk-siteimprove/conn-checker/pkg/conn"
 )
 
-type UrlJob struct {
+type JsonUrlJob struct {
 	Id  string `json:"id"`
 	Url string `json:"url"`
 }
@@ -28,15 +28,15 @@ type JobResultError struct {
 
 // Creates an empty channel that can receive UrlJobs and sets workerCount workers to take jobs from
 // the queue.
-func PrepareJobQueue(workerCount uint8, wg *sync.WaitGroup) (chan UrlJob, chan JobResultSuccess, chan JobResultError){
-	jobCh := make(chan UrlJob)
+func PrepareJsonWorkQueue(workerCount uint8, wg *sync.WaitGroup) (chan JsonUrlJob, chan JobResultSuccess, chan JobResultError){
+	jobCh := make(chan JsonUrlJob)
 	successCh := make(chan JobResultSuccess)
 	errorCh := make(chan JobResultError)
 
 	// Start workers
 	for i := uint8(0); i < workerCount; i++ {
 		wg.Add(1)
-		go urlWorker(jobCh, successCh, errorCh, wg)
+		go jsonUrlWorker(jobCh, successCh, errorCh, wg)
 	}
 
 	return jobCh, successCh, errorCh
@@ -44,7 +44,7 @@ func PrepareJobQueue(workerCount uint8, wg *sync.WaitGroup) (chan UrlJob, chan J
 
 // The worker tries to parse the URL. If the operation succeeds then the worker attempts to connect
 // to the url while collecting redirects. 
-func urlWorker(jobChan <-chan UrlJob, successChan chan<- JobResultSuccess, errChan chan<- JobResultError, wg *sync.WaitGroup) {
+func jsonUrlWorker(jobChan <-chan JsonUrlJob, successChan chan<- JobResultSuccess, errChan chan<- JobResultError, wg *sync.WaitGroup) {
 	defer wg.Done()
 	// var localpath string
 
@@ -81,37 +81,3 @@ func urlWorker(jobChan <-chan UrlJob, successChan chan<- JobResultSuccess, errCh
 	}
 }
 
-// Fills work queue with UrlJobs that can be processed in parallel.
-// func ReadCsvIntoQueue(filepath string, ch chan<- UrlJob) error {
-// 	f, err := os.Open(filepath)
-// 	if err != nil {
-// 		return fmt.Errorf("error while opening the file: %w", err)
-// 	}
-// 	defer f.Close()
-
-// 	reader := csv.NewReader(f)
-
-// 	// Read first line so it is not added to queue
-// 	_, err = reader.Read()
-// 	if err != nil {
-// 		return fmt.Errorf("error while parsing first line of file: %w", err)
-// 	}
-
-// 	for {
-// 		line, err := reader.Read()
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 		if err != nil {
-// 			return fmt.Errorf("error parsing input file entry %s: %w", line, err)
-// 		}
-
-// 		// Columns read from csv
-// 		idEntry := line[IdCol]
-// 		urlEntry := line[UrlCol]
-
-// 		// Add job to queue
-// 		ch <- UrlJob{Id: idEntry, Url: urlEntry}
-// 	}
-// 	return nil
-// }

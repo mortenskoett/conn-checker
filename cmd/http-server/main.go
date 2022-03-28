@@ -59,7 +59,7 @@ func validate(w http.ResponseWriter, r *http.Request) {
 
 	// Create url job queue
 	var wg sync.WaitGroup
-	jobQueue, httpSuccessOut, httpErrorsOut, otherErrorsOut := work.PrepareJsonWorkQueue(workerCount, &wg)
+	jobQueue, httpSuccessOut, httpErrorsOut, otherErrorsOut := work.PrepareJsonWorkQueues(workerCount, &wg)
 
 	response := ValidationResponse{
 		HttpSuccess: make([]work.JobHttpSuccess, 0, jobCount/2), // TODO: Estimated sizes
@@ -73,17 +73,14 @@ func validate(w http.ResponseWriter, r *http.Request) {
 		for i := 0 ; i < jobCount; i++ {
 			select {
 				case suc :=  <-httpSuccessOut:
-					fmt.Println(suc)
 					response.HttpSuccess = append(response.HttpSuccess, suc)
 					wg.Done()
 
 				case err :=  <- httpErrorsOut:
-					fmt.Println(err)
 					response.HttpErrors = append(response.HttpErrors, err)
 					wg.Done()
 
 				case err :=  <- otherErrorsOut:
-					fmt.Println(err)
 					response.OtherErrors = append(response.OtherErrors, err)
 					wg.Done()
 			}
@@ -94,21 +91,11 @@ func validate(w http.ResponseWriter, r *http.Request) {
 	for _, url := range urls {
 		jobQueue <- url
 	}
+	close(jobQueue) // No more jobs need to be added
 
-	// No more jobs needs to be added
-	close(jobQueue)
+	wg.Wait() // Wait for workers to finish processing urls
 
-	// Wait for workers to finish processing urls
-	wg.Wait()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Fatalf("error happened during JSON encoding of response: %s", err)
-	}
-
+	returnJsonPayload(w, response)
 	log.Println("Job done. Json results successfully served to client:", jobCount)
 	return
 }
@@ -142,6 +129,17 @@ func decodeJsonBodyInto(w http.ResponseWriter, r *http.Request, outputVar interf
 		}
 	}
 	return -1, nil
+}
+
+func returnJsonPayload(w http.ResponseWriter, payload ValidationResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	err := json.NewEncoder(w).Encode(payload)
+	if err != nil {
+		returnStatus(w, fmt.Sprintf("error happened during JSON encoding of response: %s", err), http.StatusInternalServerError)
+	}
+	return
 }
 
 func returnStatus(w http.ResponseWriter, message string, status int) {

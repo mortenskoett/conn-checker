@@ -34,7 +34,7 @@ type JobOtherError struct {
 
 // Creates an empty channel that can receive UrlJobs and sets workerCount workers to take jobs from
 // the queue.
-func PrepareJsonWorkQueue(workerCount uint8, wg *sync.WaitGroup) (chan JsonUrlJob, chan JobHttpSuccess,
+func PrepareJsonWorkQueues(workerCount uint8, wg *sync.WaitGroup) (chan JsonUrlJob, chan JobHttpSuccess,
 																	chan JobHttpError, chan JobOtherError){
 	jobCh := make(chan JsonUrlJob)
 	httpSuccessCh := make(chan JobHttpSuccess)
@@ -93,7 +93,7 @@ func jsonUrlWorker(jobChan <-chan JsonUrlJob, httpSuccessChan chan<- JobHttpSucc
 		// }
 
 		// No error happened
-		log.Println(job.Id, "OK http success result:", result)
+		log.Println(job.Id, "OK http success result:", result.Status, result.EndUrl)
 		httpSuccessChan <- JobHttpSuccess {
 			Id: job.Id,
 			EndUrl: result.EndUrl.String(),

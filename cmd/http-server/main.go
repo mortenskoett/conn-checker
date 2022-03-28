@@ -40,7 +40,7 @@ func main() {
 }
 
 func ping(w http.ResponseWriter, r *http.Request) {
-	returnStatus(w, "pong", http.StatusOK)
+	returnJsonStatus(w, "pong", http.StatusOK)
 }
 
 // Validate json request and investigate HTTPS status codes and robotstxt of all URL's.
@@ -49,7 +49,7 @@ func validate(w http.ResponseWriter, r *http.Request) {
 
 	status, err := decodeJsonBodyInto(w, r, &urls)
 	if err != nil {
-		returnStatus(w, err.Error(), status)
+		returnJsonStatus(w, err.Error(), status)
 		return
 	}
 
@@ -76,10 +76,8 @@ func validate(w http.ResponseWriter, r *http.Request) {
 			select {
 				case suc :=  <-httpSuccessOut:
 					response.HttpSuccess = append(response.HttpSuccess, suc)
-
 				case err :=  <- httpErrorsOut:
 					response.HttpErrors = append(response.HttpErrors, err)
-
 				case err :=  <- otherErrorsOut:
 					response.OtherErrors = append(response.OtherErrors, err)
 			}
@@ -90,19 +88,23 @@ func validate(w http.ResponseWriter, r *http.Request) {
 	for _, url := range urls {
 		jobQueue <- url
 	}
-	close(jobQueue) // No more jobs to be added
 
-	wg.Wait() // Wait for workers to finish processing urls
+	// No more jobs to be added
+	close(jobQueue) 
 
-	returnJsonPayload(w, response)
-	log.Println("Job done. Json results successfully served to client:", jobCount)
+	// Wait for workers to finish processing urls
+	wg.Wait()
+
+	if err := returnJsonPayload(w, response); err == nil {
+		log.Println("Conn-checker done. Json results successfully served to client:", jobCount)
+	}
 	return
 }
 
-// Handling of input json request body
+// Handling and validation of input json request body
 func decodeJsonBodyInto(w http.ResponseWriter, r *http.Request, outputVar interface{}) (int, error) {
 	if contentType := r.Header.Get("Content-Type"); contentType != "application/json" {
-			returnStatus(w, "Content-Type is not application/json", http.StatusUnsupportedMediaType)
+			returnJsonStatus(w, "Content-Type is not application/json", http.StatusUnsupportedMediaType)
 		}
 
 	var syntaxError *json.SyntaxError
@@ -130,18 +132,19 @@ func decodeJsonBodyInto(w http.ResponseWriter, r *http.Request, outputVar interf
 	return -1, nil
 }
 
-func returnJsonPayload(w http.ResponseWriter, payload ValidationResponse) {
+func returnJsonPayload(w http.ResponseWriter, payload ValidationResponse) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
 	err := json.NewEncoder(w).Encode(payload)
 	if err != nil {
-		returnStatus(w, fmt.Sprintf("error happened during JSON encoding of response: %s", err), http.StatusInternalServerError)
+		returnJsonStatus(w, fmt.Sprintf("error happened during JSON encoding of response: %s", err), http.StatusInternalServerError)
+		return err
 	}
-	return
+	return nil
 }
 
-func returnStatus(w http.ResponseWriter, message string, status int) {
+func returnJsonStatus(w http.ResponseWriter, message string, status int) {
 	log.Println(status, message)
 
 	w.Header().Set("Content-Type", "application/json")

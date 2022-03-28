@@ -20,7 +20,7 @@ type ValidationResponse struct {
 
 const (
 	port string = ":8080"
-	workerCount uint8 = 1
+	workerCount uint8 = 20
 )
 
 func main() {
@@ -67,22 +67,21 @@ func validate(w http.ResponseWriter, r *http.Request) {
 		OtherErrors: make([]work.JobOtherError, 0, jobCount/4),
 	}
 
-	// Setup goroutine to handle output from workers 
+	// Setup single goroutine to synchronize output from workers into data structure.
 	go func() {
-		wg.Add(jobCount)
+		wg.Add(1)
+		defer wg.Done()
+
 		for i := 0 ; i < jobCount; i++ {
 			select {
 				case suc :=  <-httpSuccessOut:
 					response.HttpSuccess = append(response.HttpSuccess, suc)
-					wg.Done()
 
 				case err :=  <- httpErrorsOut:
 					response.HttpErrors = append(response.HttpErrors, err)
-					wg.Done()
 
 				case err :=  <- otherErrorsOut:
 					response.OtherErrors = append(response.OtherErrors, err)
-					wg.Done()
 			}
 		}
 	}()
@@ -91,7 +90,7 @@ func validate(w http.ResponseWriter, r *http.Request) {
 	for _, url := range urls {
 		jobQueue <- url
 	}
-	close(jobQueue) // No more jobs need to be added
+	close(jobQueue) // No more jobs to be added
 
 	wg.Wait() // Wait for workers to finish processing urls
 

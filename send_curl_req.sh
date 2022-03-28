@@ -11,7 +11,12 @@
 # 	-H 'Content-Type: application/json' \
 # 	-d '[{"id":"0","url":"www.example.com"}]'
 
-echo "Test 3 - Send valid request w. invalid URL"
+# echo "Test 3 - Send valid request w. invalid URL"
+# curl -X POST localhost:8080/validate \
+# 	-H 'Content-Type: application/json' \
+# 	-d '[{"id":"0","url":"yadadwww.asdfghj.com"}]'
+
+# echo "Test 4 - Send multiple valid requests in single json list"
 curl -X POST localhost:8080/validate \
 	-H 'Content-Type: application/json' \
-	-d '[{"id":"0","url":"yadadwww.asdfghj.com"}]'
+	-d '@./data/very_small.json'

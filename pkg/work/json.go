@@ -66,6 +66,7 @@ func jsonUrlWorker(jobChan <-chan JsonUrlJob, httpSuccessChan chan<- JobHttpSucc
 		}
 
 		// Expects valid URL at this point
+
 		result, err := conn.Connect(parsedUrl)
 		if err != nil {
 			log.Println(job.Id, "error connecting to site:", err)
@@ -80,20 +81,24 @@ func jsonUrlWorker(jobChan <-chan JsonUrlJob, httpSuccessChan chan<- JobHttpSucc
 		}
 
 		// Download robots.txt
-		if result.StatusCode == 200 {
-			// TODO: Check robotstxt using smartjim/robots lib
-			log.Println("error reading robots.txt: ", err)
+		// if result.StatusCode == 200 {
+		// 	// TODO: Check robotstxt using smartjim/robots lib
+			// log.Println("error reading robots.txt: ", err)
 
 			// robotsTxtUrl := result.EndUrl.Scheme + "://" + result.EndUrl.Host + "/robots.txt"
 			// localpath = robotsOutputDir + job.Id + ".rob"
 			// err = conn.DownloadFileTo(robotsTxtUrl, localpath)
 			// if err != nil {
 			// }
-		}
+		// }
 
-		// TODO: Add to success chanel
 		// No error happened
 		log.Println(job.Id, "OK http success result:", result)
+		httpSuccessChan <- JobHttpSuccess {
+			Id: job.Id,
+			EndUrl: result.EndUrl.String(),
+			Status: result.StatusCode,
+		}
 	}
 }
 

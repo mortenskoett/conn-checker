@@ -53,42 +53,52 @@ func validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	jobCount := len(urls)
+
+	log.Println("Processing urls: ", jobCount)
+
 	// Create url job queue
 	var wg sync.WaitGroup
 	jobQueue, httpSuccessOut, httpErrorsOut, otherErrorsOut := work.PrepareJsonWorkQueue(workerCount, &wg)
 
-	// Add urls to queue
+	response := ValidationResponse{
+		HttpSuccess: make([]work.JobHttpSuccess, 0, jobCount/2), // TODO: Estimated sizes
+		HttpErrors: make([]work.JobHttpError, 0, jobCount/4),
+		OtherErrors: make([]work.JobOtherError, 0, jobCount/4),
+	}
+
+	// Setup goroutine to handle output from workers 
+	go func() {
+		wg.Add(jobCount)
+		for i := 0 ; i < jobCount; i++ {
+			select {
+				case suc :=  <-httpSuccessOut:
+					fmt.Println(suc)
+					response.HttpSuccess = append(response.HttpSuccess, suc)
+					wg.Done()
+
+				case err :=  <- httpErrorsOut:
+					fmt.Println(err)
+					response.HttpErrors = append(response.HttpErrors, err)
+					wg.Done()
+
+				case err :=  <- otherErrorsOut:
+					fmt.Println(err)
+					response.OtherErrors = append(response.OtherErrors, err)
+					wg.Done()
+			}
+		}
+	}()
+
+	// Add urls to queue to start processing
 	for _, url := range urls {
 		jobQueue <- url
 	}
 
-	// No more jobs should be added
+	// No more jobs needs to be added
 	close(jobQueue)
 
-	response := ValidationResponse{
-		HttpSuccess: make([]work.JobHttpSuccess, 0, len(urls)/2), // TODO: Estimate
-		HttpErrors: make([]work.JobHttpError, 0, len(urls)/4),
-		OtherErrors: make([]work.JobOtherError, 0, len(urls)/4),
-	}
-
-	// Fill slices with data to be returned
-	for i := 0 ; i < len(urls); i++ {
-		select {
-			case suc :=  <-httpSuccessOut:
-				fmt.Println(suc)
-				response.HttpSuccess = append(response.HttpSuccess, suc)
-
-			case err :=  <- httpErrorsOut:
-				fmt.Println(err)
-				response.HttpErrors = append(response.HttpErrors, err)
-
-			case err :=  <- otherErrorsOut:
-				fmt.Println(err)
-				response.OtherErrors = append(response.OtherErrors, err)
-		}
-	}
-
-	// Wait for workers to finish (unbuffered channels are like single element blocking queues.)
+	// Wait for workers to finish processing urls
 	wg.Wait()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -99,7 +109,7 @@ func validate(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("error happened during JSON encoding of response: %s", err)
 	}
 
-	log.Println("Job done. Json results successfully served to client:", len(urls))
+	log.Println("Job done. Json results successfully served to client:", jobCount)
 	return
 }
 

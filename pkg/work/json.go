@@ -1,6 +1,7 @@
 package work
 
 import (
+	"fmt"
 	"log"
 	"sync"
 
@@ -12,13 +13,13 @@ type JsonUrlJob struct {
 	Url string `json:"url"`
 }
 
-type JobResultSuccess struct {
+type JobHttpSuccess struct {
 	Id  string `json:"id"`
 	EndUrl string `json:"end_url"`
 	Status int `json:"status"`
 }
 
-type JobResultError struct {
+type JobHttpError struct {
 	Id  string `json:"id"`
 	ReqUrl string `json:"req_url"`
 	EndUrl string `json:"end_url"`
@@ -26,40 +27,55 @@ type JobResultError struct {
 	Suggestion string `json:"suggestion"`
 }
 
+type JobOtherError struct {
+	Id  string `json:"id"`
+	Message string `json:"message"`
+}
+
 // Creates an empty channel that can receive UrlJobs and sets workerCount workers to take jobs from
 // the queue.
-func PrepareJsonWorkQueue(workerCount uint8, wg *sync.WaitGroup) (chan JsonUrlJob, chan JobResultSuccess, chan JobResultError){
+func PrepareJsonWorkQueue(workerCount uint8, wg *sync.WaitGroup) (chan JsonUrlJob, chan JobHttpSuccess,
+																	chan JobHttpError, chan JobOtherError){
 	jobCh := make(chan JsonUrlJob)
-	successCh := make(chan JobResultSuccess)
-	errorCh := make(chan JobResultError)
+	httpSuccessCh := make(chan JobHttpSuccess)
+	httpErrorCh := make(chan JobHttpError)
+	otherErrorCh := make(chan JobOtherError)
 
 	// Start workers
 	for i := uint8(0); i < workerCount; i++ {
 		wg.Add(1)
-		go jsonUrlWorker(jobCh, successCh, errorCh, wg)
+		go jsonUrlWorker(jobCh, httpSuccessCh, httpErrorCh, otherErrorCh, wg)
 	}
 
-	return jobCh, successCh, errorCh
+	return jobCh, httpSuccessCh, httpErrorCh, otherErrorCh
 }
 
 // The worker tries to parse the URL. If the operation succeeds then the worker attempts to connect
 // to the url while collecting redirects. 
-func jsonUrlWorker(jobChan <-chan JsonUrlJob, successChan chan<- JobResultSuccess, errChan chan<- JobResultError, wg *sync.WaitGroup) {
+func jsonUrlWorker(jobChan <-chan JsonUrlJob, httpSuccessChan chan<- JobHttpSuccess, 
+					httpErrChan chan<- JobHttpError, otherErrorChan chan<- JobOtherError, wg *sync.WaitGroup) {
 	defer wg.Done()
-	// var localpath string
 
 	for job := range jobChan {
 		parsedUrl, err := conn.ParseToUrl(job.Url)
 		if err != nil {
-			// TODO: Add to error channel
-			log.Print(job.Id, "error added: parsing to url:", parsedUrl, err)
+			msg := fmt.Sprint("error parsing to url:", err.Error())
+			log.Println("Job:", job.Id, msg)
+			otherErrorChan <- JobOtherError{Id: job.Id, Message: msg}
 			continue
 		}
 
+		// Expects valid URL at this point
 		result, err := conn.Connect(parsedUrl)
 		if err != nil {
-			// TODO: Add to error channel
-			log.Println(job.Id, "error added: connecting to site:", result, err)
+			log.Println(job.Id, "error connecting to site:", err)
+			httpErrChan <- JobHttpError {
+				Id: job.Id,
+				ReqUrl: job.Url,
+				EndUrl: "",
+				EndUrlStatus: 0,
+				Suggestion: err.Error(),
+			}
 			continue
 		}
 
@@ -77,7 +93,7 @@ func jsonUrlWorker(jobChan <-chan JsonUrlJob, successChan chan<- JobResultSucces
 
 		// TODO: Add to success chanel
 		// No error happened
-		log.Println(job.Id, "success added: connection result:", result)
+		log.Println(job.Id, "OK http success result:", result)
 	}
 }
 

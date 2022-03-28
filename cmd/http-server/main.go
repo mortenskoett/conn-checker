@@ -13,8 +13,9 @@ import (
 )
 
 type ValidationResponse struct {
-	Success []work.JobResultSuccess `json:"validations"`
-	Errors []work.JobResultError `json:"errors"`
+	HttpSuccess []work.JobHttpSuccess`json:"http_success"`
+	HttpErrors []work.JobHttpError `json:"http_errors"`
+	OtherErrors[]work.JobOtherError `json:"other_errors"`
 }
 
 const (
@@ -27,6 +28,7 @@ func main() {
 	http.HandleFunc("/ping", ping)
 	http.HandleFunc("/validate", validate)
 
+	// Start server
 	fmt.Println(utils.Logo())
 	log.Println("Conn-checker starting")
 
@@ -41,51 +43,69 @@ func ping(w http.ResponseWriter, r *http.Request) {
 	returnStatus(w, "pong", http.StatusOK)
 }
 
+// Validate json request and investigate HTTPS status codes and robotstxt of all URL's.
 func validate(w http.ResponseWriter, r *http.Request) {
 	var urls []work.JsonUrlJob
 
-	status, err := decodeJsonBodyInto(w, r, urls)
+	status, err := decodeJsonBodyInto(w, r, &urls)
 	if err != nil {
 		returnStatus(w, err.Error(), status)
 		return
 	}
 
-	log.Println(urls)
-
 	// Create url job queue
 	var wg sync.WaitGroup
-	jobQueue, successOut, errorsOut := work.PrepareJsonWorkQueue(workerCount, &wg)
+	jobQueue, httpSuccessOut, httpErrorsOut, otherErrorsOut := work.PrepareJsonWorkQueue(workerCount, &wg)
 
 	// Add urls to queue
 	for _, url := range urls {
 		jobQueue <- url
 	}
 
-	// Wait for workers to finish processing urls
+	// No more jobs should be added
 	close(jobQueue)
-	wg.Wait()
 
 	response := ValidationResponse{
-		Success: make([]work.JobResultSuccess, 0, len(urls)/2), // TODO: Estimate
-		Errors: make([]work.JobResultError, 0, len(urls)/2),
+		HttpSuccess: make([]work.JobHttpSuccess, 0, len(urls)/2), // TODO: Estimate
+		HttpErrors: make([]work.JobHttpError, 0, len(urls)/4),
+		OtherErrors: make([]work.JobOtherError, 0, len(urls)/4),
 	}
 
-	// Return collected results
-	for success := range successOut {
-		response.Success = append(response.Success, success)
-	}
-	for err := range errorsOut {
-		response.Errors= append(response.Errors, err)
+	// Fill slices with data to be returned
+	for i := 0 ; i < len(urls); i++ {
+		select {
+			case suc :=  <-httpSuccessOut:
+				fmt.Println(suc)
+				response.HttpSuccess = append(response.HttpSuccess, suc)
+
+			case err :=  <- httpErrorsOut:
+				fmt.Println(err)
+				response.HttpErrors = append(response.HttpErrors, err)
+
+			case err :=  <- otherErrorsOut:
+				fmt.Println(err)
+				response.OtherErrors = append(response.OtherErrors, err)
+		}
 	}
 
-	json, _ := json.Marshal(response)
+	// Wait for workers to finish (unbuffered channels are like single element blocking queues.)
+	wg.Wait()
+
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(json)
+	w.WriteHeader(http.StatusOK)
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Fatalf("error happened during JSON encoding of response: %s", err)
+	}
+
+	log.Println("Job done. Json results successfully served to client:", len(urls))
+	return
 }
 
 // Handling of input json request body
 func decodeJsonBodyInto(w http.ResponseWriter, r *http.Request, outputVar interface{}) (int, error) {
-	if contentType := r.Header.Get("Content-Type"); contentType != "" {
+	if contentType := r.Header.Get("Content-Type"); contentType != "application/json" {
 			returnStatus(w, "Content-Type is not application/json", http.StatusUnsupportedMediaType)
 		}
 

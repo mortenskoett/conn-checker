@@ -15,31 +15,31 @@ import (
 
 const (
 	maxRedirects       = 20
-	connectTimeoutSecs = 10
+	connectTimeoutSecs = 4
 )
 
 type Redirect struct {
-	Url	 	*url.URL
-	Status 	int
+	Url    *url.URL
+	Status int
 }
 
 type ConnectionResult struct {
-	Status    string
+	Status     string
 	StatusCode int
-	ReqUrl    *url.URL
-	EndUrl    *url.URL
-	Redirects []Redirect // Url to statuscode
+	ReqUrl     *url.URL
+	EndUrl     *url.URL
+	Redirects  []Redirect // Url to statuscode
 }
 
 // Makes a GET request to the given URL. If URL is valid then a max of
 // 'maxRedirects' redirects are followed to determine the status of the end url.
 func Connect(url *url.URL) (*ConnectionResult, error) {
 	result := &ConnectionResult{
-		Status:    "",
+		Status:     "",
 		StatusCode: 0,
-		ReqUrl:    nil,
-		EndUrl:    nil,
-		Redirects: make([]Redirect, 0, 1),
+		ReqUrl:     nil,
+		EndUrl:     nil,
+		Redirects:  make([]Redirect, 0, 1),
 	}
 
 	client := &http.Client{
@@ -74,6 +74,44 @@ func Connect(url *url.URL) (*ConnectionResult, error) {
 	return result, nil
 }
 
+// Attempts to parse the given string into URL format.
+// TODO: Implement more sophisticated URL validation.
+func ParseToUrl(u string) (*url.URL, error) {
+	schemedUrl, err := addScheme(u)
+	if err != nil {
+		return nil, err
+	}
+
+	parsedUrl, err := url.ParseRequestURI(schemedUrl)
+
+	if parsedUrl == nil {
+		return nil, fmt.Errorf("the given input string url cannot be parsed to a valid url")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedUrl, nil
+}
+
+// Makes asssumptions about input string and modifies it to be handlable as URL.
+func addScheme(url string) (string, error) {
+	if url == "" {
+		return "", fmt.Errorf("the given url was empty")
+	}
+
+	if !strings.HasPrefix(url, "http") {
+		var sb strings.Builder
+		sb.WriteString("http://")
+		sb.WriteString(url)
+		return sb.String(), nil
+	}
+
+	// Otherwise we assume nothing is wrong.
+	return url, nil
+}
+
 // Download body of url directly to a local file which is created at 'filepath'.
 func DownloadFileTo(url string, filepath string) error {
 	resp, err := http.Get(url)
@@ -97,36 +135,4 @@ func DownloadFileTo(url string, filepath string) error {
 
 	_, err = io.Copy(f, utf8Encoded)
 	return err
-}
-
-// Attempts to parse the given string into URL format.
-func ParseToUrl(u string) (*url.URL, error) {
-	schemedUrl, err := addScheme(u)
-	if err != nil {
-		return nil, err
-	}
-
-	parsedUrl, err := url.Parse(schemedUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	return parsedUrl, nil
-}
-
-// Makes asssumptions about input string and modifies it to be handlable as URL.
-func addScheme(url string) (string, error) {
-	if url == "" {
-		return "", fmt.Errorf("the given url was empty")
-	}
-
-	if !strings.HasPrefix(url, "http") {
-		var sb strings.Builder
-		sb.WriteString("http://")
-		sb.WriteString(url)
-		return sb.String(), nil
-	}
-
-	// Otherwise we assume nothing is wrong.
-	return url, nil
 }

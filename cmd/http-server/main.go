@@ -43,7 +43,9 @@ func ping(w http.ResponseWriter, r *http.Request) {
 	returnJsonStatus(w, "pong", http.StatusOK)
 }
 
-// Validate json request and investigate HTTPS status codes and robotstxt of all URL's.
+// Validate json request and investigate HTTPS status codes and robotstxt of all URL's. N workers
+// process the jobs while a single worker synchronizes the data into a data structure suitable for
+// marshalling to json. Order is important because of concurrency.
 func validate(w http.ResponseWriter, r *http.Request) {
 	var urls []work.JsonUrlJob
 

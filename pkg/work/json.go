@@ -5,7 +5,13 @@ import (
 	"log"
 	"sync"
 
+	"github.com/jimsmart/grobotstxt"
 	"github.com/msk-siteimprove/conn-checker/pkg/conn"
+)
+
+var (
+	// TODO: Should be given as arg to API
+	agents = []string{"ConnCheckerBot/1.0"}
 )
 
 type JsonUrlJob struct {
@@ -16,14 +22,13 @@ type JsonUrlJob struct {
 type JobHttpSuccess struct {
 	Id  string `json:"id"`
 	EndUrl string `json:"end_url"`
-	Status int `json:"status"`
+	HttpStatus int `json:"http_status"`
+	RobotsOk bool `json:"robots_ok"`
 }
 
 type JobHttpError struct {
 	Id  string `json:"id"`
 	ReqUrl string `json:"req_url"`
-	EndUrl string `json:"end_url"`
-	EndUrlStatus int `json:"end_url_status"`
 	Suggestion string `json:"suggestion"`
 }
 
@@ -51,7 +56,7 @@ func PrepareJsonWorkQueues(workerCount uint8, wg *sync.WaitGroup) (chan JsonUrlJ
 }
 
 // The worker tries to parse the URL. If the operation succeeds then the worker attempts to connect
-// to the url while collecting redirects. 
+// to the url while collecting redirects. Robotstxt is also tested for crawlability with given agent.
 func jsonUrlWorker(jobChan <-chan JsonUrlJob, httpSuccessChan chan<- JobHttpSuccess, 
 					httpErrChan chan<- JobHttpError, otherErrorChan chan<- JobOtherError, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -73,31 +78,22 @@ func jsonUrlWorker(jobChan <-chan JsonUrlJob, httpSuccessChan chan<- JobHttpSucc
 			httpErrChan <- JobHttpError {
 				Id: job.Id,
 				ReqUrl: job.Url,
-				EndUrl: "",
-				EndUrlStatus: 0,
 				Suggestion: err.Error(),
 			}
 			continue
 		}
 
-		// Download robots.txt
-		// if result.StatusCode == 200 {
-		// 	// TODO: Check robotstxt using smartjim/robots lib
-			// log.Println("error reading robots.txt: ", err)
+		// Investigate robots.txt
+		robotsTxt := result.EndUrl.Scheme + "://" + result.EndUrl.Host + "/robots.txt"
+		isAllowed := grobotstxt.AgentsAllowed(robotsTxt, agents, result.EndUrl.String())
 
-			// robotsTxtUrl := result.EndUrl.Scheme + "://" + result.EndUrl.Host + "/robots.txt"
-			// localpath = robotsOutputDir + job.Id + ".rob"
-			// err = conn.DownloadFileTo(robotsTxtUrl, localpath)
-			// if err != nil {
-			// }
-		// }
-
-		// No error happened
+		// Return https status results
 		log.Println(job.Id, "OK http success result:", result.Status, result.EndUrl)
 		httpSuccessChan <- JobHttpSuccess {
 			Id: job.Id,
 			EndUrl: result.EndUrl.String(),
-			Status: result.StatusCode,
+			HttpStatus: result.StatusCode,
+			RobotsOk : isAllowed,
 		}
 	}
 }

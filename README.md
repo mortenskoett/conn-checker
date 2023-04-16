@@ -10,7 +10,7 @@ Tool to batch check and validate connections to URL's.
 ```
 
 ## CLI
-To work with .csv format. 
+To work with .csv format from the command line.
 
 ```
 Description
@@ -24,6 +24,21 @@ Usage
         Path to the input .csv file.
 ```
 
+The expected .csv format:
+```csv
+id,url
+1,url1.com
+2,url2.edu
+3,www.url3.com
+4,https://www.url3.com
+```
+Note id's do not have to be numeric nor sequential.
+
+Example to process a `.csv` file from the project root and store results in `output/`:
+```bash
+go run cmd/cli/main.go -file csv_file
+```
+
 ## HTTP API
 To work with json based requests.
 
@@ -34,32 +49,37 @@ Example curl request:
  	-d '[{"id":"0","url":"www.example.com"}]'
 ```
 
-Example in / output:
+Example json request:
 ```json
-// request
 [
   {
+      "id": "0",
+      "req_url": "blablainvalidurl.coma"
+  },
+  {
     "id": "1",
-    "url": "soundcloud.com"
+    "url": "fineurl1.com"
   },
   {
     "id": "2",
-    "url": "yale.edu"
+    "url": "fineurl2.com"
   }
 ]
+```
 
-// response
+Example json response:
+```json
 {
   "http_success": [
     {
       "id": "1",
-      "end_url": "https://soundcloud.com/",
+      "end_url": "fineurl1.com",
       "http_status": 200,
       "robots_ok": true
     },
     {
       "id": "2",
-      "end_url": "https://www.yale.edu/",
+      "end_url": "fineurl2.com",
       "http_status": 200,
       "robots_ok": true
     }

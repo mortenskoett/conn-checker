@@ -22,11 +22,12 @@ Each URL is probed whereafter two judgements are made:
    found).
 
 ## How to use
-The CLI is supposed to work on .csv files and will process the URL's found in parallel, persisting
-them on disk on-the-fly.
+The CLI works on .csv files and processes the listed URL's in parallel, persisting
+them on disk on-the-fly to circumvent checking the same URL's multiple times in case
+something happens during processing of a large dataset.
 
 The HTTP server will take json requests over the wire and process the listed URL's and return
-a status for each link.
+a status for each link aggregated in a single response.
 
 ### CLI
 To work with .csv format from the command line.
